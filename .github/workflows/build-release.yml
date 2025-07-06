@@ -36,7 +36,10 @@ jobs:
           -scheme LockIt \
           -configuration Release \
           -destination "platform=macOS" \
-          -derivedDataPath build
+          -derivedDataPath build \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO
 
     - name: Create DMG
       run: |
