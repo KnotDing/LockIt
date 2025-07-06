@@ -13,6 +13,7 @@ class AppSettings: ObservableObject {
     @AppStorage("disconnectTimeout") var disconnectTimeout: TimeInterval = 5.0
     @AppStorage("lockMode") var lockMode: LockMode = .lockScreen
     @AppStorage("selectedPeripheralUUID") var selectedPeripheralUUID: String? // New property
+    @AppStorage("selectedLanguageCode") var selectedLanguageCode: String? // New property for language
     
     @Published var launchAtLoginEnabled: Bool = false
 
@@ -57,15 +58,24 @@ class AppSettings: ObservableObject {
 }
 
 enum LockMode: String, CaseIterable {
-    case lockScreen = "锁屏"
-    case screenSaver = "启动屏幕保护"
+    case lockScreen = "lockScreen"
+    case screenSaver = "screenSaver"
+
+    var localizedString: String {
+        switch self {
+        case .lockScreen:
+            return NSLocalizedString("LOCK_MODE_LOCK_SCREEN", comment: "Lock screen mode")
+        case .screenSaver:
+            return NSLocalizedString("LOCK_MODE_SCREEN_SAVER", comment: "Screen saver mode")
+        }
+    }
 }
 
 // MARK: - Helper Views
 struct LockNowButton: View {
     let action: () -> Void
     var body: some View {
-        Button("立即锁定", action: action)
+        Button(NSLocalizedString("LOCK_NOW_BUTTON_TITLE", comment: "Title for the Lock Now button"), action: action)
     }
 }
 
@@ -73,10 +83,10 @@ struct ConnectedDeviceStatusView: View {
     @ObservedObject var bluetoothManager: BluetoothManager
     var body: some View {
         if bluetoothManager.selectedPeripheral == nil {
-            Text("未连接设备").disabled(true)
+            Text(NSLocalizedString("NO_DEVICE_CONNECTED", comment: "Text displayed when no device is connected")).disabled(true)
         } else {
-            Text("已连接: \(bluetoothManager.selectedPeripheral?.name ?? "未知设备")")
-            Text("信号强度: \(bluetoothManager.rssi) dBm")
+            Text(String(format: NSLocalizedString("CONNECTED_DEVICE_NAME", comment: "Text showing connected device name"), bluetoothManager.selectedPeripheral?.name ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name")))
+            Text(String(format: NSLocalizedString("SIGNAL_STRENGTH", comment: "Text showing signal strength"), bluetoothManager.rssi.stringValue))
         }
     }
 }
@@ -86,7 +96,10 @@ struct DiscoveredDeviceRow: View {
     let connectAction: (CBPeripheral) -> Void
 
     var body: some View {
-        Button("\(discoveredDevice.peripheral.name ?? "未知设备") (ID: \(discoveredDevice.peripheral.identifier.uuidString.prefix(8))... | RSSI: \(discoveredDevice.rssi) dBm)") { // Fixed: Use peripheral.name
+        Button(String(format: NSLocalizedString("DISCOVERED_DEVICE_FORMAT", comment: "Format string for discovered device row"),
+                      discoveredDevice.peripheral.name ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name"),
+                      discoveredDevice.peripheral.identifier.uuidString.prefix(8).description,
+                      discoveredDevice.rssi.stringValue)) { // Fixed: Use peripheral.name
             connectAction(discoveredDevice.peripheral)
         }
     }
@@ -102,9 +115,9 @@ struct SelectBluetoothDeviceMenu: View {
             print("  Device in list: \(device.peripheral.name ?? "Unknown") (ID: \(device.id.uuidString)) RSSI: \(device.rssi) dBm")
         }
 
-        return Menu("选择蓝牙设备") {
+        return Menu(NSLocalizedString("SELECT_BLUETOOTH_DEVICE_MENU_TITLE", comment: "Menu title for selecting Bluetooth device")) {
             if bluetoothManager.discoveredPeripherals.isEmpty {
-                Text("扫描中...").disabled(true)
+                Text(NSLocalizedString("SCANNING_STATUS", comment: "Text indicating scanning in progress")).disabled(true)
             }
             // Use the struct's 'id' property, which conforms to Identifiable.
             ForEach(bluetoothManager.discoveredPeripherals) { discoveredDevice in
@@ -125,9 +138,9 @@ struct SelectBluetoothDeviceMenu: View {
 struct SignalThresholdMenu: View {
     @ObservedObject var settings: AppSettings
     var body: some View {
-        Menu("弱信号强度 (\(settings.weakSignalThreshold) dBm)") {
+        Menu(String(format: NSLocalizedString("WEAK_SIGNAL_THRESHOLD_MENU_TITLE", comment: "Menu title for weak signal threshold"), settings.weakSignalThreshold)) {
             ForEach(stride(from: -30, through: -90, by: -5).map { $0 }, id: \.self) { value in
-                Button("\(value) dBm") { settings.weakSignalThreshold = value }
+                Button(String(format: NSLocalizedString("DBM_VALUE_FORMAT", comment: "Format for dBm value"), value)) { settings.weakSignalThreshold = value }
             }
         }
     }
@@ -136,11 +149,11 @@ struct SignalThresholdMenu: View {
 struct ScreenOnSignalThresholdMenu: View {
     @ObservedObject var settings: AppSettings
     var body: some View {
-        Menu("点亮屏幕信号强度 (\(settings.screenOnSignalThreshold) dBm)") {
+        Menu(String(format: NSLocalizedString("SCREEN_ON_SIGNAL_THRESHOLD_MENU_TITLE", comment: "Menu title for screen on signal threshold"), settings.screenOnSignalThreshold)) {
             ForEach(stride(from: -30, through: -90, by: -5).map { $0 }, id: \.self) { value in
                 // Ensure screenOnSignalThreshold is stronger (less negative) than weakSignalThreshold
                 if value > settings.weakSignalThreshold {
-                    Button("\(value) dBm") { settings.screenOnSignalThreshold = value }
+                    Button(String(format: NSLocalizedString("DBM_VALUE_FORMAT", comment: "Format for dBm value"), value)) { settings.screenOnSignalThreshold = value }
                 }
             }
         }
@@ -150,9 +163,9 @@ struct ScreenOnSignalThresholdMenu: View {
 struct WeakSignalTimeoutMenu: View {
     @ObservedObject var settings: AppSettings
     var body: some View {
-        Menu("弱信号超时时间 (\(Int(settings.weakSignalTimeout)) 秒)") {
+        Menu(String(format: NSLocalizedString("WEAK_SIGNAL_TIMEOUT_MENU_TITLE", comment: "Menu title for weak signal timeout"), Int(settings.weakSignalTimeout))) {
             ForEach([5, 10, 20, 30, 60], id: \.self) { value in
-                Button("\(value) 秒") { settings.weakSignalTimeout = TimeInterval(value) }
+                Button(String(format: NSLocalizedString("SECONDS_VALUE_FORMAT", comment: "Format for seconds value"), value)) { settings.weakSignalTimeout = TimeInterval(value) }
             }
         }
     }
@@ -161,9 +174,9 @@ struct WeakSignalTimeoutMenu: View {
 struct DisconnectTimeoutMenu: View {
     @ObservedObject var settings: AppSettings
     var body: some View {
-        Menu("连接断开超时时间 (\(Int(settings.disconnectTimeout)) 秒)") {
+        Menu(String(format: NSLocalizedString("DISCONNECT_TIMEOUT_MENU_TITLE", comment: "Menu title for disconnect timeout"), Int(settings.disconnectTimeout))) {
             ForEach([0, 5, 10, 20, 30], id: \.self) { value in
-                Button("\(value) 秒") { settings.disconnectTimeout = TimeInterval(value) }
+                Button(String(format: NSLocalizedString("SECONDS_VALUE_FORMAT", comment: "Format for seconds value"), value)) { settings.disconnectTimeout = TimeInterval(value) }
             }
         }
     }
@@ -172,9 +185,9 @@ struct DisconnectTimeoutMenu: View {
 struct LockModeMenu: View {
     @ObservedObject var settings: AppSettings
     var body: some View {
-        Menu("锁定方式 (\(settings.lockMode.rawValue))") {
+        Menu(String(format: NSLocalizedString("LOCK_MODE_MENU_TITLE", comment: "Menu title for lock mode selection"), settings.lockMode.localizedString)) {
             ForEach(LockMode.allCases, id: \.self) { mode in
-                Button(mode.rawValue) { settings.lockMode = mode }
+                Button(mode.localizedString) { settings.lockMode = mode }
             }
         }
     }
@@ -183,7 +196,7 @@ struct LockModeMenu: View {
 struct LaunchAtLoginToggle: View {
     @ObservedObject var settings: AppSettings
     var body: some View {
-        Toggle("开机启动", isOn: $settings.launchAtLoginEnabled)
+        Toggle(NSLocalizedString("LAUNCH_AT_LOGIN_TOGGLE_TITLE", comment: "Toggle title for launch at login"), isOn: $settings.launchAtLoginEnabled)
             .onChange(of: settings.launchAtLoginEnabled) { _ in
                 settings.toggleLaunchAtLogin()
             }
@@ -194,14 +207,46 @@ struct PauseButton: View {
     @Binding var isPaused: Bool
     let action: () -> Void
     var body: some View {
-        Button(isPaused ? "继续" : "暂停", action: action)
+        Button(isPaused ? NSLocalizedString("PAUSE_BUTTON_CONTINUE", comment: "Text for continue button when paused") : NSLocalizedString("PAUSE_BUTTON_PAUSE", comment: "Text for pause button"), action: action)
     }
 }
 
 struct QuitButton: View {
     let action: () -> Void
     var body: some View {
-        Button("退出", action: action)
+        Button(NSLocalizedString("QUIT_BUTTON_TITLE", comment: "Title for the Quit button"), action: action)
+    }
+}
+
+struct LanguageSelectionMenu: View {
+    @ObservedObject var settings: AppSettings
+
+    // Get available localizations from the app bundle
+    private var availableLanguages: [String] {
+        Bundle.main.localizations.filter { lang in
+            // Filter out Base and ensure it's a valid language code
+            lang != "Base" && Locale.current.localizedString(forLanguageCode: lang) != nil
+        }.sorted { lang1, lang2 in
+            // Sort by localized language name
+            Locale.current.localizedString(forLanguageCode: lang1) ?? lang1 < Locale.current.localizedString(forLanguageCode: lang2) ?? lang2
+        }
+    }
+
+    var body: some View {
+        Menu(NSLocalizedString("LANGUAGE_MENU_TITLE", comment: "Menu title for language selection")) {
+            ForEach(availableLanguages, id: \.self) { langCode in
+                Button(Locale(identifier: langCode).localizedString(forLanguageCode: langCode) ?? langCode) {
+                    settings.selectedLanguageCode = langCode
+                    // Show alert to restart app
+                    let alert = NSAlert()
+                    alert.messageText = NSLocalizedString("RESTART_APP_ALERT_TITLE", comment: "Alert title for app restart");
+                    alert.informativeText = NSLocalizedString("RESTART_APP_ALERT_MESSAGE", comment: "Alert message for app restart");
+                    alert.alertStyle = .warning
+                    alert.addButton(withTitle: NSLocalizedString("RESTART_APP_ALERT_OK", comment: "OK button for app restart alert"))
+                    alert.runModal()
+                }
+            }
+        }
     }
 }
 
@@ -214,6 +259,12 @@ struct LockItApp: App {
     init() {
         _bluetoothManager = StateObject(wrappedValue: BluetoothManager())
         _settings = StateObject(wrappedValue: AppSettings())
+
+        // Apply selected language on app launch
+        if let languageCode = settings.selectedLanguageCode {
+            UserDefaults.standard.set([languageCode], forKey: "AppleLanguages")
+            UserDefaults.standard.synchronize()
+        }
     }
     @State private var weakSignalTimer: Timer?
     @State private var disconnectTimer: Timer?
@@ -235,6 +286,7 @@ struct LockItApp: App {
                 LockModeMenu(settings: settings)
                 Divider()
                 LaunchAtLoginToggle(settings: settings)
+                LanguageSelectionMenu(settings: settings)
                 PauseButton(isPaused: $isPaused) {
                     isPaused.toggle()
                 }
