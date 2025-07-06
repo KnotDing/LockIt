@@ -1,0 +1,87 @@
+name: Build and Release macOS App
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*' # Trigger on tags like v1.0.0
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest # Or macos-13, macos-14 depending on Xcode version needed
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # - name: Set up Xcode version (uncomment if specific Xcode version is needed)
+    #   uses: maxim-lobanov/setup-xcode@v1
+    #   with:
+    #     xcode-version: '15.0' # Example: specify your required Xcode version
+
+    - name: Get App Version from Info.plist
+      id: get_version
+      run: |
+        VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" LockIt/Info.plist)
+        BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" LockIt/Info.plist)
+        echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+        echo "APP_BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+        echo "RELEASE_TAG=v$VERSION" >> $GITHUB_ENV # For release naming
+
+    - name: Build Application
+      run: |
+        xcodebuild clean build \
+          -workspace LockIt.xcodeproj/project.xcworkspace \
+          -scheme LockIt \
+          -configuration Release \
+          -destination "platform=macOS" \
+          -derivedDataPath build
+
+    - name: Create DMG
+      run: |
+        APP_NAME="LockIt"
+        APP_BUNDLE_PATH="build/Build/Products/Release/${APP_NAME}.app"
+        DMG_NAME="${APP_NAME}-${{ env.APP_VERSION }}.dmg"
+        TEMP_DMG_NAME="${DMG_NAME}.temp.dmg"
+        
+        echo "Creating DMG for: $APP_BUNDLE_PATH"
+        echo "Output DMG: $DMG_NAME"
+
+        # Create a new blank disk image
+        hdiutil create -ov -fs HFS+ -volname "${APP_NAME}" -size 100m "${TEMP_DMG_NAME}"
+
+        # Mount the disk image
+        hdiutil attach "${TEMP_DMG_NAME}" -mountpoint "/Volumes/${APP_NAME}"
+
+        # Copy the application into the disk image
+        cp -R "${APP_BUNDLE_PATH}" "/Volumes/${APP_NAME}/"
+
+        # Create a symlink to the Applications folder
+        ln -s /Applications "/Volumes/${APP_NAME}/Applications"
+
+        # Unmount the disk image
+        hdiutil detach "/Volumes/${APP_NAME}"
+
+        # Convert the disk image to a compressed, read-only format
+        hdiutil convert "${TEMP_DMG_NAME}" -format UDBZ -o "${DMG_NAME}"
+
+        # Remove the temporary disk image
+        rm "${TEMP_DMG_NAME}"
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v') # Only create release on tag pushes
+      uses: softprops/action-gh-release@v1
+      with:
+        files: LockIt-${{ env.APP_VERSION }}.dmg
+        name: Release ${{ env.APP_VERSION }}
+        tag_name: ${{ github.ref }}
+        body: |
+          # LockIt v${{ env.APP_VERSION }}
+
+          This is an automated release.
+          
+          ## Changes
+          (Add release notes here)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
