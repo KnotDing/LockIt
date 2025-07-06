@@ -26,14 +26,19 @@ jobs:
           BUILD_PRODUCTS_PATH="build/Build/Products/Release"
           DMG_NAME="${APP_NAME}.dmg"
           TEMP_DMG_DIR="dmg_temp"
+          RW_DMG_NAME="${APP_NAME}-rw.dmg" # Temporary read-write DMG name
 
           mkdir -p "$TEMP_DMG_DIR"
           cp -R "$BUILD_PRODUCTS_PATH/$APP_NAME.app" "$TEMP_DMG_DIR/"
 
-          hdiutil create -volname "$APP_NAME" -srcfolder "$TEMP_DMG_DIR" -ov -format UDRW "$DMG_NAME"
-          hdiutil convert "$DMG_NAME" -format UDBZ -o "$DMG_NAME"
+          # Create a read-write disk image with a temporary name
+          hdiutil create -volname "$APP_NAME" -srcfolder "$TEMP_DMG_DIR" -ov -format UDRW "$RW_DMG_NAME"
 
-          rm -rf "$TEMP_DMG_DIR"
+          # Convert to a compressed read-only disk image, outputting to the final DMG_NAME
+          hdiutil convert "$RW_DMG_NAME" -format UDBZ -o "$DMG_NAME"
+
+          # Clean up temporary directory and the temporary read-write DMG
+          rm -rf "$TEMP_DMG_DIR" "$RW_DMG_NAME"
         working-directory: ${{ github.workspace }}
 
       - name: Upload DMG as Artifact
