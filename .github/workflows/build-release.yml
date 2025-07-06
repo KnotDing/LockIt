@@ -9,7 +9,9 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: macos-latest # Or macos-13, macos-14 depending on Xcode version needed
+    runs-on: macos-latest
+    permissions:
+      contents: write # Grant write permission for GITHUB_TOKEN to create releases
 
     steps:
     - name: Checkout code
