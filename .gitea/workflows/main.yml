@@ -42,7 +42,7 @@ jobs:
         working-directory: ${{ github.workspace }}
 
       - name: Upload DMG as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: LockIt-macOS-App
           path: LockIt.dmg
