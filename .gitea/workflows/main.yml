@@ -31,6 +31,9 @@ jobs:
           mkdir -p "$TEMP_DMG_DIR"
           cp -R "$BUILD_PRODUCTS_PATH/$APP_NAME.app" "$TEMP_DMG_DIR/"
 
+          # Create a symbolic link to /Applications inside the temporary DMG content directory
+          ln -s /Applications "$TEMP_DMG_DIR/Applications"
+
           # Create a read-write disk image with a temporary name
           hdiutil create -volname "$APP_NAME" -srcfolder "$TEMP_DMG_DIR" -ov -format UDRW "$RW_DMG_NAME"
 
