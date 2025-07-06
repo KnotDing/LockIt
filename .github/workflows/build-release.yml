@@ -22,14 +22,21 @@ jobs:
       with:
         xcode-version: '16.2.0'
 
-    - name: Get App Version from Info.plist
+    - name: Get App Version and Release Tag
       id: get_version
       run: |
         VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" LockIt/Info.plist)
         BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" LockIt/Info.plist)
         echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
         echo "APP_BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
-        echo "RELEASE_TAG=v$VERSION" >> $GITHUB_ENV # For release naming
+
+        # Extract tag name if triggered by a tag push
+        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          RELEASE_VERSION=$(echo "${{ github.ref }}" | sed -e "s/refs\/tags\///g")
+        else
+          RELEASE_VERSION="v$VERSION" # Fallback to Info.plist version if not a tag
+        fi
+        echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_ENV
 
     - name: Build Application
       run: |
@@ -47,7 +54,7 @@ jobs:
       run: |
         APP_NAME="LockIt"
         APP_BUNDLE_PATH="build/Build/Products/Release/${APP_NAME}.app"
-        DMG_NAME="${APP_NAME}-${{ env.APP_VERSION }}.dmg"
+        DMG_NAME="${APP_NAME}-${{ env.RELEASE_VERSION }}.dmg"
         TEMP_DMG_NAME="${DMG_NAME}.temp.dmg"
         
         echo "Creating DMG for: $APP_BUNDLE_PATH"
@@ -78,11 +85,11 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/v') # Only create release on tag pushes
       uses: softprops/action-gh-release@v1
       with:
-        files: LockIt-${{ env.APP_VERSION }}.dmg
-        name: Release ${{ env.APP_VERSION }}
+        files: LockIt-${{ env.RELEASE_VERSION }}.dmg
+        name: Release ${{ env.RELEASE_VERSION }}
         tag_name: ${{ github.ref }}
         body: |
-          # LockIt v${{ env.APP_VERSION }}
+          # LockIt ${{ env.RELEASE_VERSION }}
 
           This is an automated release.
           
