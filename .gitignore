@@ -1,0 +1,59 @@
+# Xcode
+.DS_Store
+build/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+.swiftpm/
+DerivedData/
+*.xcscmblueprint
+*.xccheckout
+*.xcscmrepos
+
+# Swift Package Manager
+.build/
+
+# Objective-C/Swift
+*.hmap
+*.d
+*.dia
+*.o
+*.a
+*.dylib
+*.framework
+*.app
+*.dSYM
+*.ipa
+*.xcarchive
+*.zip
+*.tgz
+*.tar.gz
+
+# Logs and temporary files
+*.log
+*.temp
+*.tmp
+*.bak
+*.orig
+*.rej
+*.swo
+*.swp
+
+# Python (if applicable)
+*.pyc
+*.pyo
+__pycache__/
+
+# Environment variables (sensitive information)
+.env
+.env.local
+.env.*.local
+
+# macOS specific
+.localized
+
+# Exclude specific files from being ignored if their parent directory is ignored
+# For example, if you ignore *.xcodeproj/, but want to keep project.pbxproj
+!*.xcodeproj/project.pbxproj
+!*.xcworkspace/contents.xcworkspacedata
+!*.xcworkspace/xcshareddata/
+!*.xcodeproj/xcshareddata/
