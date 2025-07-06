@@ -15,10 +15,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # - name: Set up Xcode version (uncomment if specific Xcode version is needed)
-    #   uses: maxim-lobanov/setup-xcode@v1
-    #   with:
-    #     xcode-version: '15.0' # Example: specify your required Xcode version
+    - name: Set up Xcode version
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '16.4'
 
     - name: Get App Version from Info.plist
       id: get_version
