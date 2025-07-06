@@ -294,6 +294,9 @@ struct LockItApp: App {
             }
             .onAppear {
                 bluetoothManager.setup(settings: settings)
+                bluetoothManager.lockScreenAction = { 
+                    self.lockScreen()
+                }
             }
         }, label: {
             Image(systemName: imageName)
