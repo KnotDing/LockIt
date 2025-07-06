@@ -33,6 +33,8 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     @Published var isConnected: Bool = false // Connection status (still useful for lock logic)
 
     var settings: AppSettings? // Reference to AppSettings, now optional
+    private var lockScreenTimer: Timer?
+    var lockScreenAction: (() -> Void)? // Closure to trigger lock screen
 
     override init() {
         super.init()
@@ -180,6 +182,9 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         print("BluetoothManager: Peripheral connected: \(peripheral.name ?? "Unknown")")
         DispatchQueue.main.async {
             self.isConnected = true // Update connection status
+            self.lockScreenTimer?.invalidate() // Invalidate timer on reconnection
+            self.lockScreenTimer = nil
+            print("BluetoothManager: Lock screen timer invalidated due to reconnection.")
         }
         // No need to discover services or read RSSI here if we only care about discovery RSSI
     }
@@ -192,7 +197,21 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         }
         DispatchQueue.main.async {
             self.isConnected = false // Update connection status
+
+            // Start lock screen timer if a disconnect timeout duration is set
+            if let settings = self.settings, settings.disconnectTimeout > 0 {
+                self.lockScreenTimer?.invalidate() // Invalidate any existing timer
+                self.lockScreenTimer = Timer.scheduledTimer(withTimeInterval: settings.disconnectTimeout, repeats: false) { [weak self] _ in
+                    self?.triggerLockScreen()
+                }
+                print("BluetoothManager: Lock screen timer started for \(settings.disconnectTimeout) seconds.")
+            }
         }
+    }
+
+    private func triggerLockScreen() {
+        print("BluetoothManager: Lock screen triggered after timeout.")
+        lockScreenAction?() // Call the closure to trigger the lock screen
     }
 
     // This function is no longer used for real-time RSSI updates for selectedPeripheral

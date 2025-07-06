@@ -57,3 +57,5 @@ __pycache__/
 !*.xcworkspace/contents.xcworkspacedata
 !*.xcworkspace/xcshareddata/
 !*.xcodeproj/xcshareddata/
+
+LockIt.dmg
