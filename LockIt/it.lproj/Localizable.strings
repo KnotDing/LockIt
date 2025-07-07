@@ -1,0 +1,27 @@
+
+"LOCK_MODE_LOCK_SCREEN" = "Blocca schermo";
+"LOCK_MODE_SCREEN_SAVER" = "Avvia salvaschermo";
+"LOCK_MODE_MENU_TITLE" = "Modalità di blocco (%@)";
+"LOCK_NOW_BUTTON_TITLE" = "Blocca ora";
+"NO_DEVICE_CONNECTED" = "Nessun dispositivo connesso";
+"CONNECTED_DEVICE_NAME" = "Connesso: %@";
+"UNKNOWN_DEVICE" = "Dispositivo sconosciuto";
+"SIGNAL_STRENGTH" = "Intensità segnale: %@ dBm";
+"DISCOVERED_DEVICE_FORMAT" = "%@ (ID: %@... | RSSI: %@ dBm)";
+"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "Seleziona dispositivo Bluetooth";
+"SCANNING_STATUS" = "Scansione in corso...";
+"WEAK_SIGNAL_THRESHOLD_MENU_TITLE" = "Soglia segnale debole (%d dBm)";
+"DBM_VALUE_FORMAT" = "%d dBm";
+"SCREEN_ON_SIGNAL_THRESHOLD_MENU_TITLE" = "Soglia segnale schermo acceso (%d dBm)";
+"WEAK_SIGNAL_TIMEOUT_MENU_TITLE" = "Timeout segnale debole (%d secondi)";
+"SECONDS_VALUE_FORMAT" = "%d secondi";
+"DISCONNECT_TIMEOUT_MENU_TITLE" = "Timeout disconnessione (%d secondi)";
+"LAUNCH_AT_LOGIN_TOGGLE_TITLE" = "Avvia all'accesso";
+"PAUSE_BUTTON_CONTINUE" = "Continua";
+"PAUSE_BUTTON_PAUSE" = "Pausa";
+"QUIT_BUTTON_TITLE" = "Esci";
+"LANGUAGE_MENU_TITLE" = "Lingua";
+"RESTART_APP_ALERT_TITLE" = "Riavvio richiesto";
+"RESTART_APP_ALERT_MESSAGE" = "Riavvia l'applicazione per applicare le modifiche della lingua.";
+"RESTART_APP_ALERT_OK" = "OK";
+"PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE" = "Metti in pausa i media al blocco";

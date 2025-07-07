@@ -19,6 +19,7 @@
 "PAUSE_BUTTON_CONTINUE" = "Continue";
 "PAUSE_BUTTON_PAUSE" = "Pause";
 "QUIT_BUTTON_TITLE" = "Quit";
+"PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE" = "Pause Media on Lock";
 "LANGUAGE_MENU_TITLE" = "Language";
 "RESTART_APP_ALERT_TITLE" = "Restart Required";
 "RESTART_APP_ALERT_MESSAGE" = "Please restart the application for language changes to take effect.";
