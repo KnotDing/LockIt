@@ -40,6 +40,9 @@ jobs:
 
     - name: Build Application
       run: |
+        APP_NAME="LockIt"
+        APP_BUNDLE_PATH="build/Build/Products/Release/${APP_NAME}.app"
+
         xcodebuild clean build \
           -workspace LockIt.xcodeproj/project.xcworkspace \
           -scheme LockIt \
@@ -49,6 +52,9 @@ jobs:
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO
+
+        # Ad-hoc sign the application bundle
+        codesign --force --deep --sign - "${APP_BUNDLE_PATH}"
 
     - name: Create DMG
       run: |
