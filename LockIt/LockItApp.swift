@@ -3,6 +3,7 @@ import SwiftUI
 import CoreBluetooth
 import Combine
 import ServiceManagement // Import ServiceManagement for launch at login
+import CoreGraphics // Import CoreGraphics for screen lock status
 
 
 // MARK: - App Configuration
@@ -38,9 +39,13 @@ class AppSettings: ObservableObject {
         do {
             try SMAppService.mainApp.register()
             launchAtLoginEnabled = true
+            #if DEBUG
             print("Successfully enabled launch at login.")
+#endif
         } catch {
+            #if DEBUG
             print("Failed to enable launch at login: \(error.localizedDescription)")
+#endif
             launchAtLoginEnabled = false
         }
     }
@@ -49,9 +54,13 @@ class AppSettings: ObservableObject {
         do {
             try SMAppService.mainApp.unregister()
             launchAtLoginEnabled = false
+            #if DEBUG
             print("Successfully disabled launch at login.")
+#endif
         } catch {
+            #if DEBUG
             print("Failed to disable launch at login: \(error.localizedDescription)")
+#endif
             launchAtLoginEnabled = true
         }
     }
@@ -110,9 +119,13 @@ struct SelectBluetoothDeviceMenu: View {
     let connectAction: (CBPeripheral) -> Void
 
     var body: some View {
+        #if DEBUG
         print("SelectBluetoothDeviceMenu: body re-evaluated. Discovered count: \(bluetoothManager.discoveredPeripherals.count)")
+#endif
         for device in bluetoothManager.discoveredPeripherals {
+            #if DEBUG
             print("  Device in list: \(device.peripheral.name ?? "Unknown") (ID: \(device.id.uuidString)) RSSI: \(device.rssi) dBm")
+#endif
         }
 
         return Menu(NSLocalizedString("SELECT_BLUETOOTH_DEVICE_MENU_TITLE", comment: "Menu title for selecting Bluetooth device")) {
@@ -125,11 +138,15 @@ struct SelectBluetoothDeviceMenu: View {
             }
         }
         .onAppear {
-            print("SelectBluetoothDeviceMenu: onAppear called. Starting listPopulation scan.")
+            #if DEBUG
+        print("SelectBluetoothDeviceMenu: onAppear called. Starting listPopulation scan.")
+#endif
             bluetoothManager.startScan(reason: .listPopulation)
         }
         .onDisappear {
-            print("SelectBluetoothDeviceMenu: onDisappear called. Stopping listPopulation scan.")
+            #if DEBUG
+        print("SelectBluetoothDeviceMenu: onDisappear called. Stopping listPopulation scan.")
+#endif
             bluetoothManager.stopScan(reason: .listPopulation)
         }
     }
@@ -293,30 +310,14 @@ struct LockItApp: App {
                 QuitButton { NSApplication.shared.terminate(nil) }
             }
             .onAppear {
-                bluetoothManager.setup(settings: settings)
-                bluetoothManager.lockScreenAction = { 
-                    self.lockScreen()
-                }
+                _bluetoothManager.wrappedValue.setup(settings: _settings.wrappedValue)
+        _bluetoothManager.wrappedValue.lockScreenAction = { self.lockScreen() }
             }
         }, label: {
             Image(systemName: imageName)
         })
         .onChange(of: bluetoothManager.rssi) { newRssi in
-            handleRssiChange(newRssi)
-        }
-        .onChange(of: bluetoothManager.selectedPeripheral) { peripheral in
-            if peripheral != nil && !isPaused {
-                bluetoothManager.startScan(reason: .selectedPeripheralMonitoring)
-            } else {
-                bluetoothManager.stopScan(reason: .selectedPeripheralMonitoring)
-            }
-        }
-        .onChange(of: isPaused) { paused in
-            if paused {
-                bluetoothManager.stopScan(reason: .selectedPeripheralMonitoring)
-            } else if bluetoothManager.selectedPeripheral != nil {
-                bluetoothManager.startScan(reason: .selectedPeripheralMonitoring)
-            }
+            self.handleRssiChange(newRssi)
         }
     }
 
@@ -329,6 +330,14 @@ struct LockItApp: App {
     }
 
     // MARK: - Core Logic
+    private func isScreenLocked() -> Bool {
+        if let sessionDict = CGSessionCopyCurrentDictionary() as? [String: Any],
+           let isLocked = sessionDict["CGSSessionScreenIsLocked"] as? Bool {
+            return isLocked
+        }
+        return false
+    }
+
     private func handleRssiChange(_ newRssi: NSNumber) {
         guard !isPaused else { return }
         
@@ -343,11 +352,20 @@ struct LockItApp: App {
             weakSignalTimer?.invalidate()
             weakSignalTimer = nil
             
-            // Turn on screen
-            let task = Process()
-            task.launchPath = "/usr/bin/caffeinate"
-            task.arguments = ["-u", "-t", "1"]
-            task.launch()
+            // Turn on screen only if the screen is currently locked
+            if isScreenLocked() {
+                #if DEBUG
+                print("LockItApp: Screen turned on.")
+#endif
+                let task = Process()
+                task.launchPath = "/usr/bin/caffeinate"
+                task.arguments = ["-u", "-t", "1"]
+                task.launch()
+            } else {
+                #if DEBUG
+                print("LockItApp: Screen is already unlocked, not turning on.")
+#endif
+            }
         }
         else {
             weakSignalTimer?.invalidate()
@@ -362,10 +380,20 @@ struct LockItApp: App {
         switch settings.lockMode {
         case .lockScreen:
             command = "pmset displaysleepnow"
+#if DEBUG
             print("LockScreen: Executing command: \(command)")
+#endif
+            #if DEBUG
+            print("LockItApp: Screen locked.")
+#endif
         case .screenSaver:
             command = "open -a ScreenSaverEngine"
+#if DEBUG
             print("LockScreen: Executing command: \(command)")
+#endif
+            #if DEBUG
+            print("LockItApp: Screen saver activated.")
+#endif
         }
 
         let task = Process()
