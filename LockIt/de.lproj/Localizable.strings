@@ -4,15 +4,16 @@
 "LOCK_MODE_MENU_TITLE" = "Sperrmodus (%@)";
 "LOCK_NOW_BUTTON_TITLE" = "Jetzt sperren";
 "NO_DEVICE_CONNECTED" = "Kein Gerät verbunden";
-"CONNECTED_DEVICE_NAME" = "Verbunden: %@";
+"CONNECTED_DEVICE_STATUS" = "Verbunden: %@ (%@ dBm)";
 "UNKNOWN_DEVICE" = "Unbekanntes Gerät";
-"SIGNAL_STRENGTH" = "Signalstärke: %@ dBm";
 "DISCOVERED_DEVICE_FORMAT" = "%@ (ID: %@... | RSSI: %@ dBm)";
-"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "Bluetooth-Gerät auswählen";
+"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "Zielgerät";
 "SCANNING_STATUS" = "Scannt...";
-"WEAK_SIGNAL_THRESHOLD_MENU_TITLE" = "Schwaches Signal Schwellenwert (%d dBm)";
+"WEAK_SIGNAL_THRESHOLD_MENU_TITLE" = "Sperrschwelle (%d dBm)";
 "DBM_VALUE_FORMAT" = "%d dBm";
-"SCREEN_ON_SIGNAL_THRESHOLD_MENU_TITLE" = "Bildschirm an Signal Schwellenwert (%d dBm)";
+"SCREEN_ON_SIGNAL_THRESHOLD_MENU_TITLE" = "Aufwachschwelle (%d dBm)";
+"SCREEN_ON_SIGNAL_THRESHOLD_MENU_TITLE_DISABLED" = "Aufwachschwelle (Deaktiviert)";
+"DISABLED" = "Deaktiviert";
 "WEAK_SIGNAL_TIMEOUT_MENU_TITLE" = "Schwaches Signal Timeout (%d Sekunden)";
 "SECONDS_VALUE_FORMAT" = "%d Sekunden";
 "DISCONNECT_TIMEOUT_MENU_TITLE" = "Verbindungsabbruch Timeout (%d Sekunden)";
@@ -20,9 +21,10 @@
 "PAUSE_BUTTON_CONTINUE" = "Fortsetzen";
 "PAUSE_BUTTON_PAUSE" = "Pause";
 "QUIT_BUTTON_TITLE" = "Beenden";
+"WAKE_ON_AUTO_LOCK_ONLY_TOGGLE_TITLE" = "Nur bei automatischer Sperre aufwachen";
 "LANGUAGE_MENU_TITLE" = "Sprache";
 "RESTART_APP_ALERT_TITLE" = "Neustart erforderlich";
 "RESTART_APP_ALERT_MESSAGE" = "Bitte starten Sie die Anwendung neu, damit die Sprachänderungen wirksam werden.";
 "RESTART_APP_ALERT_OK" = "OK";
-"PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE" = "Medien bei Sperrung pausieren";
+"PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE" = "Bei Sperrung pausieren";
 
