@@ -8,13 +8,13 @@ LockIt is a super cool macOS menu bar application designed to boost your device 
 
 *   **Bluetooth Device Monitoring**: Constantly monitors the signal strength (RSSI) of your chosen Bluetooth device. Super precise, super reliable! 📡
 *   **Automatic Lock/Screen Saver**: When your Bluetooth signal gets weak (you've wandered off!), LockIt will, after a short delay, automatically lock your macOS screen or start that snazzy screen saver. Your privacy is safe with us! 🛡️
-*   **Smart Screen On**: Back at your desk? As soon as your device's signal is strong again, your screen will light up automatically, seamlessly picking up where you left off! 💡
-*   **Configurable Thresholds**: You're in control! Customize the weak signal strength and screen-on signal strength thresholds to perfectly match your habits. 📏
-*   **Flexible Timeouts**: Set those weak signal and disconnection timeouts just right to avoid any accidental triggers. Smooth sailing all the way! ⏳
+*   **Smart Screen On**: Back at your desk? As soon as your device's signal is strong again, your screen will light up automatically, seamlessly picking up where you left off! 💡 (New "Wake on Auto-Lock Only" option to control whether to wake up when not locked by this app)
+*   **Configurable Thresholds**: You're in control! Customize the lock threshold and wake threshold to perfectly match your habits. 📏
+*   **Flexible Timeouts**: Set those weak signal timeout and disconnect timeout just right to avoid any accidental triggers. Smooth sailing all the way! ⏳
 *   **Launch at Login**: Set it and forget it! Opt to automatically launch LockIt when macOS starts, so it's always ready to protect your digital space. 💻
 *   **Remembers Last Selected Device**: LockIt has a good memory! It'll recall your last connected Bluetooth device and try to hook up with it on the next launch. Easy peasy! 🧠
 *   **Sleek Menu Bar Integration**: A tiny, elegant icon in your menu bar that's always there, showing you the status at a glance. Simple and effective! 🖥️
-*   **Pause Media on Lock**: When you step away, LockIt doesn't just lock your screen; it can also pause your music or videos! Keep your privacy intact and avoid disturbing others. 🔇
+*   **Pause on Lock**: When you step away, LockIt doesn't just lock your screen; it can also pause your music or videos! Keep your privacy intact and avoid disturbing others. 🔇
 
 ### 🚀 How to Get Started (It's a Breeze!)
 
