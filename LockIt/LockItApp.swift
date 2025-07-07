@@ -250,10 +250,22 @@ struct LanguageSelectionMenu: View {
         }
     }
 
+    // New helper function to get specific localized names for Chinese variants
+    private func getLocalizedLanguageName(for langCode: String) -> String {
+        switch langCode {
+        case "zh-Hans":
+            return "简体中文"
+        case "zh-Hant":
+            return "繁體中文"
+        default:
+            return Locale(identifier: langCode).localizedString(forLanguageCode: langCode) ?? langCode
+        }
+    }
+
     var body: some View {
         Menu(NSLocalizedString("LANGUAGE_MENU_TITLE", comment: "Menu title for language selection")) {
             ForEach(availableLanguages, id: \.self) { langCode in
-                Button(Locale(identifier: langCode).localizedString(forLanguageCode: langCode) ?? langCode) {
+                Button(getLocalizedLanguageName(for: langCode)) {
                     settings.selectedLanguageCode = langCode
                     // Show alert to restart app
                     let alert = NSAlert()
