@@ -1,0 +1,27 @@
+
+"LOCK_MODE_LOCK_SCREEN" = "화면 잠금";
+"LOCK_MODE_SCREEN_SAVER" = "화면 보호기 시작";
+"LOCK_MODE_MENU_TITLE" = "잠금 모드 (%@)";
+"LOCK_NOW_BUTTON_TITLE" = "지금 잠금";
+"NO_DEVICE_CONNECTED" = "연결된 장치 없음";
+"CONNECTED_DEVICE_NAME" = "연결됨: %@";
+"UNKNOWN_DEVICE" = "알 수 없는 장치";
+"SIGNAL_STRENGTH" = "신호 강도: %@ dBm";
+"DISCOVERED_DEVICE_FORMAT" = "%@ (ID: %@... | RSSI: %@ dBm)";
+"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "블루투스 장치 선택";
+"SCANNING_STATUS" = "스캔 중...";
+"WEAK_SIGNAL_THRESHOLD_MENU_TITLE" = "약한 신호 임계값 (%d dBm)";
+"DBM_VALUE_FORMAT" = "%d dBm";
+"SCREEN_ON_SIGNAL_THRESHOLD_MENU_TITLE" = "화면 켜짐 신호 임계값 (%d dBm)";
+"WEAK_SIGNAL_TIMEOUT_MENU_TITLE" = "약한 신호 시간 초과 (%d 초)";
+"SECONDS_VALUE_FORMAT" = "%d 초";
+"DISCONNECT_TIMEOUT_MENU_TITLE" = "연결 끊김 시간 초과 (%d 초)";
+"LAUNCH_AT_LOGIN_TOGGLE_TITLE" = "로그인 시 시작";
+"PAUSE_BUTTON_CONTINUE" = "계속";
+"PAUSE_BUTTON_PAUSE" = "일시 중지";
+"QUIT_BUTTON_TITLE" = "종료";
+"LANGUAGE_MENU_TITLE" = "언어";
+"RESTART_APP_ALERT_TITLE" = "재시작 필요";
+"RESTART_APP_ALERT_MESSAGE" = "언어 변경을 적용하려면 애플리케이션을 재시작하십시오.";
+"RESTART_APP_ALERT_OK" = "확인";
+"PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE" = "잠금 시 미디어 일시 중지";

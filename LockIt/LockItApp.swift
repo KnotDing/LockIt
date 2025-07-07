@@ -15,6 +15,7 @@ class AppSettings: ObservableObject {
     @AppStorage("lockMode") var lockMode: LockMode = .lockScreen
     @AppStorage("selectedPeripheralUUID") var selectedPeripheralUUID: String? // New property
     @AppStorage("selectedLanguageCode") var selectedLanguageCode: String? // New property for language
+    @AppStorage("pauseMediaOnLock") var pauseMediaOnLock: Bool = false // New property
     
     @Published var launchAtLoginEnabled: Bool = false
 
@@ -214,7 +215,7 @@ struct LaunchAtLoginToggle: View {
     @ObservedObject var settings: AppSettings
     var body: some View {
         Toggle(NSLocalizedString("LAUNCH_AT_LOGIN_TOGGLE_TITLE", comment: "Toggle title for launch at login"), isOn: $settings.launchAtLoginEnabled)
-            .onChange(of: settings.launchAtLoginEnabled) { _ in
+            .onChange(of: settings.launchAtLoginEnabled) {
                 settings.toggleLaunchAtLogin()
             }
     }
@@ -301,6 +302,7 @@ struct LockItApp: App {
                 WeakSignalTimeoutMenu(settings: settings)
                 DisconnectTimeoutMenu(settings: settings)
                 LockModeMenu(settings: settings)
+                Toggle(NSLocalizedString("PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE", comment: "Toggle title for pause media on lock"), isOn: $settings.pauseMediaOnLock)
                 Divider()
                 LaunchAtLoginToggle(settings: settings)
                 LanguageSelectionMenu(settings: settings)
@@ -316,8 +318,8 @@ struct LockItApp: App {
         }, label: {
             Image(systemName: imageName)
         })
-        .onChange(of: bluetoothManager.rssi) { newRssi in
-            self.handleRssiChange(newRssi)
+        .onChange(of: bluetoothManager.rssi) {
+            self.handleRssiChange(bluetoothManager.rssi)
         }
     }
 
@@ -400,5 +402,14 @@ struct LockItApp: App {
         task.launchPath = "/bin/bash"
         task.arguments = ["-c", command]
         task.launch()
+
+        // Pause media if setting is enabled
+        if settings.pauseMediaOnLock {
+            let pauseMediaScript = "tell application \"System Events\" to key code 49"
+            let osascriptTask = Process()
+            osascriptTask.launchPath = "/usr/bin/osascript"
+            osascriptTask.arguments = ["-e", pauseMediaScript]
+            osascriptTask.launch()
+        }
     }
 }

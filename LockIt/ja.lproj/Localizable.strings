@@ -1,0 +1,27 @@
+
+"LOCK_MODE_LOCK_SCREEN" = "画面をロック";
+"LOCK_MODE_SCREEN_SAVER" = "スクリーンセーバーを開始";
+"LOCK_MODE_MENU_TITLE" = "ロックモード (%@)";
+"LOCK_NOW_BUTTON_TITLE" = "今すぐロック";
+"NO_DEVICE_CONNECTED" = "デバイスが接続されていません";
+"CONNECTED_DEVICE_NAME" = "接続済み: %@";
+"UNKNOWN_DEVICE" = "不明なデバイス";
+"SIGNAL_STRENGTH" = "信号強度: %@ dBm";
+"DISCOVERED_DEVICE_FORMAT" = "%@ (ID: %@... | RSSI: %@ dBm)";
+"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "Bluetoothデバイスを選択";
+"SCANNING_STATUS" = "スキャン中...";
+"WEAK_SIGNAL_THRESHOLD_MENU_TITLE" = "弱信号しきい値 (%d dBm)";
+"DBM_VALUE_FORMAT" = "%d dBm";
+"SCREEN_ON_SIGNAL_THRESHOLD_MENU_TITLE" = "画面オン信号しきい値 (%d dBm)";
+"WEAK_SIGNAL_TIMEOUT_MENU_TITLE" = "弱信号タイムアウト (%d 秒)";
+"SECONDS_VALUE_FORMAT" = "%d 秒";
+"DISCONNECT_TIMEOUT_MENU_TITLE" = "切断タイムアウト (%d 秒)";
+"LAUNCH_AT_LOGIN_TOGGLE_TITLE" = "ログイン時に起動";
+"PAUSE_BUTTON_CONTINUE" = "続行";
+"PAUSE_BUTTON_PAUSE" = "一時停止";
+"QUIT_BUTTON_TITLE" = "終了";
+"LANGUAGE_MENU_TITLE" = "言語";
+"RESTART_APP_ALERT_TITLE" = "再起動が必要です";
+"RESTART_APP_ALERT_MESSAGE" = "言語の変更を有効にするには、アプリケーションを再起動してください。";
+"RESTART_APP_ALERT_OK" = "OK";
+"PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE" = "ロック時にメディアを一時停止";

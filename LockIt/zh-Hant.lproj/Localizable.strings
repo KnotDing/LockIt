@@ -1,0 +1,27 @@
+
+"LOCK_MODE_LOCK_SCREEN" = "鎖定螢幕";
+"LOCK_MODE_SCREEN_SAVER" = "啟動螢幕保護程式";
+"LOCK_MODE_MENU_TITLE" = "鎖定模式 (%@)";
+"LOCK_NOW_BUTTON_TITLE" = "立即鎖定";
+"NO_DEVICE_CONNECTED" = "未連接設備";
+"CONNECTED_DEVICE_NAME" = "已連接: %@";
+"UNKNOWN_DEVICE" = "未知設備";
+"SIGNAL_STRENGTH" = "訊號強度: %@ dBm";
+"DISCOVERED_DEVICE_FORMAT" = "%@ (ID: %@... | RSSI: %@ dBm)";
+"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "選擇藍牙設備";
+"SCANNING_STATUS" = "掃描中...";
+"WEAK_SIGNAL_THRESHOLD_MENU_TITLE" = "弱訊號閾值 (%d dBm)";
+"DBM_VALUE_FORMAT" = "%d dBm";
+"SCREEN_ON_SIGNAL_THRESHOLD_MENU_TITLE" = "螢幕開啟訊號閾值 (%d dBm)";
+"WEAK_SIGNAL_TIMEOUT_MENU_TITLE" = "弱訊號超時 (%d 秒)";
+"SECONDS_VALUE_FORMAT" = "%d 秒";
+"DISCONNECT_TIMEOUT_MENU_TITLE" = "斷開連接超時 (%d 秒)";
+"LAUNCH_AT_LOGIN_TOGGLE_TITLE" = "登入時啟動";
+"PAUSE_BUTTON_CONTINUE" = "繼續";
+"PAUSE_BUTTON_PAUSE" = "暫停";
+"QUIT_BUTTON_TITLE" = "退出";
+"LANGUAGE_MENU_TITLE" = "語言";
+"RESTART_APP_ALERT_TITLE" = "需要重新啟動";
+"RESTART_APP_ALERT_MESSAGE" = "請重新啟動應用程式以使語言更改生效。";
+"RESTART_APP_ALERT_OK" = "確定";
+"PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE" = "鎖定時暫停媒體播放";
