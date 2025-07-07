@@ -16,6 +16,7 @@ class AppSettings: ObservableObject {
     @AppStorage("selectedPeripheralUUID") var selectedPeripheralUUID: String? // New property
     @AppStorage("selectedLanguageCode") var selectedLanguageCode: String? // New property for language
     @AppStorage("pauseMediaOnLock") var pauseMediaOnLock: Bool = false // New property
+    @AppStorage("wakeOnAutoLockOnly") var wakeOnAutoLockOnly: Bool = false // New property
     
     @Published var launchAtLoginEnabled: Bool = false
 
@@ -95,8 +96,7 @@ struct ConnectedDeviceStatusView: View {
         if bluetoothManager.selectedPeripheral == nil {
             Text(NSLocalizedString("NO_DEVICE_CONNECTED", comment: "Text displayed when no device is connected")).disabled(true)
         } else {
-            Text(String(format: NSLocalizedString("CONNECTED_DEVICE_NAME", comment: "Text showing connected device name"), bluetoothManager.selectedPeripheral?.name ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name")))
-            Text(String(format: NSLocalizedString("SIGNAL_STRENGTH", comment: "Text showing signal strength"), bluetoothManager.rssi.stringValue))
+            Text(String(format: NSLocalizedString("CONNECTED_DEVICE_STATUS", comment: "Text showing connected device status"), bluetoothManager.selectedPeripheral?.name ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name"), bluetoothManager.rssi.stringValue))
         }
     }
 }
@@ -167,7 +167,18 @@ struct SignalThresholdMenu: View {
 struct ScreenOnSignalThresholdMenu: View {
     @ObservedObject var settings: AppSettings
     var body: some View {
-        Menu(String(format: NSLocalizedString("SCREEN_ON_SIGNAL_THRESHOLD_MENU_TITLE", comment: "Menu title for screen on signal threshold"), settings.screenOnSignalThreshold)) {
+        let title: String
+        if settings.screenOnSignalThreshold == 0 {
+            title = NSLocalizedString("SCREEN_ON_SIGNAL_THRESHOLD_MENU_TITLE_DISABLED", comment: "Menu title for screen on signal threshold when disabled")
+        } else {
+            title = String(format: NSLocalizedString("SCREEN_ON_SIGNAL_THRESHOLD_MENU_TITLE", comment: "Menu title for screen on signal threshold"), settings.screenOnSignalThreshold)
+        }
+
+        return Menu(title) {
+            Button(NSLocalizedString("DISABLED", comment: "Disabled option text")) {
+                settings.screenOnSignalThreshold = 0
+            }
+            Divider()
             ForEach(stride(from: -30, through: -90, by: -5).map { $0 }, id: \.self) { value in
                 // Ensure screenOnSignalThreshold is stronger (less negative) than weakSignalThreshold
                 if value > settings.weakSignalThreshold {
@@ -299,24 +310,27 @@ struct LockItApp: App {
     @State private var weakSignalTimer: Timer?
     @State private var disconnectTimer: Timer?
     @State private var isPaused = false
+    @State private var isLockedByApp = false
     var body: some Scene {
         MenuBarExtra(content: {
             Group {
                 LockNowButton { lockScreen() }
                 Divider()
                 ConnectedDeviceStatusView(bluetoothManager: bluetoothManager)
+                Divider()
                 SelectBluetoothDeviceMenu(bluetoothManager: bluetoothManager) { peripheral in
                     bluetoothManager.connect(to: peripheral)
                 }
-                Divider()
                 SignalThresholdMenu(settings: settings)
                 ScreenOnSignalThresholdMenu(settings: settings) // New menu item
                 WeakSignalTimeoutMenu(settings: settings)
                 DisconnectTimeoutMenu(settings: settings)
                 LockModeMenu(settings: settings)
-                Toggle(NSLocalizedString("PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE", comment: "Toggle title for pause media on lock"), isOn: $settings.pauseMediaOnLock)
                 Divider()
                 LaunchAtLoginToggle(settings: settings)
+                Toggle(NSLocalizedString("WAKE_ON_AUTO_LOCK_ONLY_TOGGLE_TITLE", comment: "Toggle title for wake on auto lock only"), isOn: $settings.wakeOnAutoLockOnly)
+                Toggle(NSLocalizedString("PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE", comment: "Toggle title for pause media on lock"), isOn: $settings.pauseMediaOnLock)
+                Divider()
                 LanguageSelectionMenu(settings: settings)
                 PauseButton(isPaused: $isPaused) {
                     isPaused.toggle()
@@ -354,7 +368,22 @@ struct LockItApp: App {
 
     private func handleRssiChange(_ newRssi: NSNumber) {
         guard !isPaused else { return }
-        
+
+        // If screen on is disabled, don't check for strong signals
+        if settings.screenOnSignalThreshold == 0 {
+            if newRssi.intValue < settings.weakSignalThreshold {
+                if weakSignalTimer == nil {
+                    weakSignalTimer = Timer.scheduledTimer(withTimeInterval: settings.weakSignalTimeout, repeats: false) { _ in
+                        lockScreen()
+                    }
+                }
+            } else {
+                weakSignalTimer?.invalidate()
+                weakSignalTimer = nil
+            }
+            return
+        }
+
         if newRssi.intValue < settings.weakSignalThreshold {
             if weakSignalTimer == nil {
                 weakSignalTimer = Timer.scheduledTimer(withTimeInterval: settings.weakSignalTimeout, repeats: false) { _ in
@@ -365,9 +394,15 @@ struct LockItApp: App {
             // If signal is strong enough, invalidate weak signal timer and turn on screen
             weakSignalTimer?.invalidate()
             weakSignalTimer = nil
-            
+
             // Turn on screen only if the screen is currently locked
             if isScreenLocked() {
+                if settings.wakeOnAutoLockOnly && !isLockedByApp {
+                    #if DEBUG
+                    print("LockItApp: Screen not woken because wakeOnAutoLockOnly is enabled and screen was not locked by app.")
+                    #endif
+                    return
+                }
                 #if DEBUG
                 print("LockItApp: Screen turned on.")
 #endif
@@ -375,6 +410,7 @@ struct LockItApp: App {
                 task.launchPath = "/usr/bin/caffeinate"
                 task.arguments = ["-u", "-t", "1"]
                 task.launch()
+                isLockedByApp = false // Reset after waking
             } else {
                 #if DEBUG
                 print("LockItApp: Screen is already unlocked, not turning on.")
@@ -414,6 +450,8 @@ struct LockItApp: App {
         task.launchPath = "/bin/bash"
         task.arguments = ["-c", command]
         task.launch()
+
+        isLockedByApp = true // Set the flag
 
         // Pause media if setting is enabled
         if settings.pauseMediaOnLock {
