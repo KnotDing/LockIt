@@ -47,6 +47,7 @@ jobs:
         # Create a temporary keychain
         KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
         KEYCHAIN_PASSWORD=github-actions
+        security delete-keychain "$KEYCHAIN_PATH" || true # Delete if exists, ignore errors
         security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
         security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
         security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -57,27 +58,115 @@ jobs:
         echo -n "$SIGNING_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
 
         echo "Importing certificate..."
-        security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$P12_PASSWORD" -T /usr/bin/codesign
+        security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$P12_PASSWORD" -A
         if [ $? -ne 0 ]; then
           echo "Certificate import failed."
           exit 1
         fi
+        sleep 5 # Give keychain time to update
         
         echo "Listing keychain contents after import:"
         security find-certificate -p "$KEYCHAIN_PATH"
         security find-generic-password -g "$KEYCHAIN_PATH"
 
-        echo "Trusting certificate..."
-        security add-trusted-cert -d -r trustRoot -k "$KEYCHAIN_PATH" "$CERTIFICATE_PATH"
-        if [ $? -ne 0 ]; then
-          echo "Trusting certificate failed."
+        echo "Setting key partition list for all identities..."
+        # Iterate over all identities and set key partition list
+        security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -oE '"[^"]+"
+
+        # Add the keychain to the search list
+        security list-keychains -d user -s "$KEYCHAIN_PATH"
+
+        # Find the code signing identity, explicitly specifying the keychain
+        echo "Looking for code signing identity..."
+        CODE_SIGN_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -n 1 | grep -o '".*"' | tr -d '"')
+
+        if [ -z "$CODE_SIGN_IDENTITY" ]; then
+          echo "Code signing identity not found!"
           exit 1
         fi
+        echo "Found identity: $CODE_SIGN_IDENTITY"
+        echo "CODE_SIGN_IDENTITY=${CODE_SIGN_IDENTITY}" >> $GITHUB_ENV
 
-        echo "Setting key partition list..."
-        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-        if [ $? -ne 0 ]; then
-          echo "Setting key partition list failed. This is a critical error for code signing."
+        # Clean up
+        rm "$CERTIFICATE_PATH"
+
+    - name: Build Application
+      run: |
+        APP_NAME="LockIt"
+        
+        xcodebuild clean build \
+          -workspace LockIt.xcodeproj/project.xcworkspace \
+          -scheme LockIt \
+          -configuration Release \
+          -destination "platform=macOS" \
+          -derivedDataPath build \
+          "CODE_SIGN_IDENTITY=${{ env.CODE_SIGN_IDENTITY }}"
+
+    - name: Create DMG
+      run: |
+        APP_NAME="LockIt"
+        APP_BUNDLE_PATH="build/Build/Products/Release/${APP_NAME}.app"
+        DMG_NAME="${APP_NAME}-${{ env.RELEASE_VERSION }}.dmg"
+        TEMP_DMG_NAME="${DMG_NAME}.temp.dmg"
+        
+        echo "Creating DMG for: $APP_BUNDLE_PATH"
+        echo "Output DMG: $DMG_NAME"
+
+        # Create a new blank disk image
+        hdiutil create -ov -fs HFS+ -volname "${APP_NAME}" -size 100m "${TEMP_DMG_NAME}"
+
+        # Mount the disk image
+        hdiutil attach "${TEMP_DMG_NAME}" -mountpoint "/Volumes/${APP_NAME}"
+
+        # Copy the application into the disk image
+        cp -R "${APP_BUNDLE_PATH}" "/Volumes/${APP_NAME}/"
+
+        # Create a symlink to the Applications folder
+        ln -s /Applications "/Volumes/${APP_NAME}/Applications"
+
+        # Unmount the disk image
+        hdiutil detach "/Volumes/${APP_NAME}"
+
+        # Convert the disk image to a compressed, read-only format
+        hdiutil convert "${TEMP_DMG_NAME}" -format UDBZ -o "${DMG_NAME}"
+
+        # Remove the temporary disk image
+        rm "${TEMP_DMG_NAME}"
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v') # Only create release on tag pushes
+      uses: softprops/action-gh-release@v1
+      with:
+        files: LockIt-${{ env.RELEASE_VERSION }}.dmg
+        name: Release ${{ env.RELEASE_VERSION }}
+        tag_name: ${{ github.ref }}
+        body: |
+          # LockIt ${{ env.RELEASE_VERSION }}
+
+          This is an automated release.
+          
+          ## Changes
+          (Add release notes here)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+ | tr -d '"' | while read -r IDENTITY_HASH; do
+          echo "Setting key partition list for identity: $IDENTITY_HASH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" "$IDENTITY_HASH"
+          if [ $? -ne 0 ]; then
+            echo "Setting key partition list failed for $IDENTITY_HASH. This is a critical error for code signing."
+            exit 1
+          fi
+        done
+
+        # Add the keychain to the search list
+        security list-keychains -d user -s "$KEYCHAIN_PATH"
+
+        # Find the code signing identity, explicitly specifying the keychain
+        echo "Looking for code signing identity..."
+        CODE_SIGN_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -n 1 | grep -o '".*"' | tr -d '"')
+
+        if [ -z "$CODE_SIGN_IDENTITY" ]; then
+          echo "Code signing identity not found!"
           exit 1
         fi
 
