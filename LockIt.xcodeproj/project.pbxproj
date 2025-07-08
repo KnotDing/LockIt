@@ -29,9 +29,22 @@
 		1A7F1F512E1A3E6900BE92A9 /* LockItUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LockItUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1A5F89232E1D332E00FC1C86 /* Exceptions for "LockIt" folder in "LockIt" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 1A7F1F362E1A3E6900BE92A9 /* LockIt */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		1A7F1F392E1A3E6900BE92A9 /* LockIt */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1A5F89232E1D332E00FC1C86 /* Exceptions for "LockIt" folder in "LockIt" target */,
+			);
 			path = LockIt;
 			sourceTree = "<group>";
 		};
@@ -241,6 +254,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		1A2BE53B2E1D324900C09F36 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
