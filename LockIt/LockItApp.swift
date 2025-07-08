@@ -291,6 +291,68 @@ struct LanguageSelectionMenu: View {
     }
 }
 
+// MARK: - About View
+struct AboutView: View {
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 64, height: 64)
+            Text(Bundle.main.appName)
+                .font(.headline)
+            Text(String(format: NSLocalizedString("ABOUT_VERSION_FORMAT", comment: "Version format string in About window"), Bundle.main.appVersion, Bundle.main.appBuild))
+                .font(.subheadline)
+            HStack {
+                Text(NSLocalizedString("ABOUT_REPOSITORY_LABEL", comment: "Label for the repository link in About window"))
+                Link("KnotDing/LockIt", destination: URL(string: "https://github.com/KnotDing/LockIt")!)
+            }
+        }
+        .padding()
+        .fixedSize()
+    }
+}
+
+// MARK: - MenuBarContentView
+struct MenuBarContentView: View {
+    @ObservedObject var bluetoothManager: BluetoothManager
+    @ObservedObject var settings: AppSettings
+    @Binding var isPaused: Bool
+    let lockScreenAction: () -> Void
+    let quitAction: () -> Void
+    
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Group {
+            LockNowButton(action: lockScreenAction)
+            Divider()
+            ConnectedDeviceStatusView(bluetoothManager: bluetoothManager)
+            Divider()
+            SelectBluetoothDeviceMenu(bluetoothManager: bluetoothManager) { peripheral in
+                bluetoothManager.connect(to: peripheral)
+            }
+            SignalThresholdMenu(settings: settings)
+            ScreenOnSignalThresholdMenu(settings: settings)
+            WeakSignalTimeoutMenu(settings: settings)
+            DisconnectTimeoutMenu(settings: settings)
+            LockModeMenu(settings: settings)
+            Divider()
+            LaunchAtLoginToggle(settings: settings)
+            Toggle(NSLocalizedString("WAKE_ON_AUTO_LOCK_ONLY_TOGGLE_TITLE", comment: "Toggle title for wake on auto lock only"), isOn: $settings.wakeOnAutoLockOnly)
+            Toggle(NSLocalizedString("PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE", comment: "Toggle title for pause media on lock"), isOn: $settings.pauseMediaOnLock)
+            Divider()
+            LanguageSelectionMenu(settings: settings)
+            Button(NSLocalizedString("ABOUT_BUTTON_TITLE", comment: "Title for the About button")) {
+                openWindow(id: "about")
+            }
+            PauseButton(isPaused: $isPaused) {
+                isPaused.toggle()
+            }
+            QuitButton(action: quitAction)
+        }
+    }
+}
+
 // MARK: - Main Application
 @main
 struct LockItApp: App {
@@ -313,33 +375,16 @@ struct LockItApp: App {
     @State private var isLockedByApp = false
     var body: some Scene {
         MenuBarExtra(content: {
-            Group {
-                LockNowButton { lockScreen() }
-                Divider()
-                ConnectedDeviceStatusView(bluetoothManager: bluetoothManager)
-                Divider()
-                SelectBluetoothDeviceMenu(bluetoothManager: bluetoothManager) { peripheral in
-                    bluetoothManager.connect(to: peripheral)
-                }
-                SignalThresholdMenu(settings: settings)
-                ScreenOnSignalThresholdMenu(settings: settings) // New menu item
-                WeakSignalTimeoutMenu(settings: settings)
-                DisconnectTimeoutMenu(settings: settings)
-                LockModeMenu(settings: settings)
-                Divider()
-                LaunchAtLoginToggle(settings: settings)
-                Toggle(NSLocalizedString("WAKE_ON_AUTO_LOCK_ONLY_TOGGLE_TITLE", comment: "Toggle title for wake on auto lock only"), isOn: $settings.wakeOnAutoLockOnly)
-                Toggle(NSLocalizedString("PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE", comment: "Toggle title for pause media on lock"), isOn: $settings.pauseMediaOnLock)
-                Divider()
-                LanguageSelectionMenu(settings: settings)
-                PauseButton(isPaused: $isPaused) {
-                    isPaused.toggle()
-                }
-                QuitButton { NSApplication.shared.terminate(nil) }
-            }
+            MenuBarContentView(
+                bluetoothManager: bluetoothManager,
+                settings: settings,
+                isPaused: $isPaused,
+                lockScreenAction: { self.lockScreen() },
+                quitAction: { NSApplication.shared.terminate(nil) }
+            )
             .onAppear {
                 _bluetoothManager.wrappedValue.setup(settings: _settings.wrappedValue)
-        _bluetoothManager.wrappedValue.lockScreenAction = { self.lockScreen() }
+                _bluetoothManager.wrappedValue.lockScreenAction = { self.lockScreen() }
             }
         }, label: {
             Image(systemName: imageName)
@@ -347,6 +392,11 @@ struct LockItApp: App {
         .onChange(of: bluetoothManager.rssi) {
             self.handleRssiChange(bluetoothManager.rssi)
         }
+        
+        Window(NSLocalizedString("ABOUT_WINDOW_TITLE", comment: "Title for the About window"), id: "about") {
+            AboutView()
+        }
+        .windowResizability(.contentSize)
     }
 
     // MARK: - Computed Properties
@@ -461,5 +511,18 @@ struct LockItApp: App {
             osascriptTask.arguments = ["-e", pauseMediaScript]
             osascriptTask.launch()
         }
+    }
+}
+
+// MARK: - Bundle Extension
+extension Bundle {
+    var appName: String {
+        infoDictionary?["CFBundleName"] as? String ?? "LockIt"
+    }
+    var appVersion: String {
+        infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+    var appBuild: String {
+        infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
 }

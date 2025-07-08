@@ -27,4 +27,8 @@
 "RESTART_APP_ALERT_MESSAGE" = "Bitte starten Sie die Anwendung neu, damit die Sprachänderungen wirksam werden.";
 "RESTART_APP_ALERT_OK" = "OK";
 "PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE" = "Bei Sperrung pausieren";
+"ABOUT_BUTTON_TITLE" = "Über";
+"ABOUT_WINDOW_TITLE" = "Über LockIt";
+"ABOUT_VERSION_FORMAT" = "Version %@ (%@)";
+"ABOUT_REPOSITORY_LABEL" = "Repository:";
 

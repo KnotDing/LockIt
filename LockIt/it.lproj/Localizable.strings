@@ -27,4 +27,8 @@
 "RESTART_APP_ALERT_MESSAGE" = "Riavvia l'applicazione per applicare le modifiche della lingua.";
 "RESTART_APP_ALERT_OK" = "OK";
 "PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE" = "Pausa al blocco";
+"ABOUT_BUTTON_TITLE" = "Informazioni";
+"ABOUT_WINDOW_TITLE" = "Informazioni su LockIt";
+"ABOUT_VERSION_FORMAT" = "Versione %@ (%@)";
+"ABOUT_REPOSITORY_LABEL" = "Repository:";
 

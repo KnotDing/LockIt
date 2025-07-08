@@ -27,4 +27,8 @@
 "RESTART_APP_ALERT_MESSAGE" = "언어 변경을 적용하려면 애플리케이션을 재시작하십시오.";
 "RESTART_APP_ALERT_OK" = "확인";
 "PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE" = "잠금 시 일시 중지";
+"ABOUT_BUTTON_TITLE" = "정보";
+"ABOUT_WINDOW_TITLE" = "LockIt 정보";
+"ABOUT_VERSION_FORMAT" = "버전 %@ (%@)";
+"ABOUT_REPOSITORY_LABEL" = "리포지토리:";
 

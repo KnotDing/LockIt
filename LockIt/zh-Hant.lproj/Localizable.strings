@@ -27,4 +27,8 @@
 "RESTART_APP_ALERT_MESSAGE" = "請重新啟動應用程式以使語言更改生效。";
 "RESTART_APP_ALERT_OK" = "確定";
 "PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE" = "鎖定時暫停播放";
+"ABOUT_BUTTON_TITLE" = "關於";
+"ABOUT_WINDOW_TITLE" = "關於 LockIt";
+"ABOUT_VERSION_FORMAT" = "版本 %@ (%@)";
+"ABOUT_REPOSITORY_LABEL" = "倉庫：";
 

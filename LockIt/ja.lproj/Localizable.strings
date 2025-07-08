@@ -27,4 +27,8 @@
 "RESTART_APP_ALERT_MESSAGE" = "言語の変更を有効にするには、アプリケーションを再起動してください。";
 "RESTART_APP_ALERT_OK" = "OK";
 "PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE" = "ロック時に一時停止";
+"ABOUT_BUTTON_TITLE" = "LockItについて";
+"ABOUT_WINDOW_TITLE" = "LockItについて";
+"ABOUT_VERSION_FORMAT" = "バージョン %@ (%@)";
+"ABOUT_REPOSITORY_LABEL" = "リポジトリ:";
 

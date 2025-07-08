@@ -26,4 +26,8 @@
 "RESTART_APP_ALERT_TITLE" = "Restart Required";
 "RESTART_APP_ALERT_MESSAGE" = "Please restart the application for language changes to take effect.";
 "RESTART_APP_ALERT_OK" = "OK";
+"ABOUT_BUTTON_TITLE" = "About";
+"ABOUT_WINDOW_TITLE" = "About LockIt";
+"ABOUT_VERSION_FORMAT" = "Version %@ (%@)";
+"ABOUT_REPOSITORY_LABEL" = "Repository:";
 
