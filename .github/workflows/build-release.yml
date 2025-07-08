@@ -22,6 +22,10 @@ jobs:
       with:
         xcode-version: '16.2.0'
 
+    - name: Run set_version.sh
+      run: |
+        bash set_version.sh
+
     - name: Get App Version and Release Tag
       id: get_version
       run: |
