@@ -99,6 +99,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1A7F1F5B2E1A3E6900BE92A9 /* Build configuration list for PBXNativeTarget "LockIt" */;
 			buildPhases = (
+				1A2BE53B2E1D324900C09F36 /* ShellScript */,
 				1A7F1F332E1A3E6900BE92A9 /* Sources */,
 				1A7F1F342E1A3E6900BE92A9 /* Frameworks */,
 				1A7F1F352E1A3E6900BE92A9 /* Resources */,
@@ -236,6 +237,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		1A2BE53B2E1D324900C09F36 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/sh \"${SRCROOT}/set_version.sh\"";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		1A7F1F332E1A3E6900BE92A9 /* Sources */ = {
