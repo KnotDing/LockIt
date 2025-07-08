@@ -267,8 +267,9 @@
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = "/bin/sh \"${SRCROOT}/set_version.sh\"";
-			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n";
+			shellPath = /bin/bash;
+			shellScript = "#!/bin/bash\n\n#  set_version.sh\n#  LockIt\n#\n#  Created by Knot Ding on 2025/7/9.\n#\n\n# Get the latest tag\nTAG=$(git describe --tags --abbrev=0)\n\n# Remove the 'v' prefix\nVERSION=${TAG#v}\n\n# Get the latest commit hash\nCOMMIT_HASH=$(git rev-parse --short HEAD)\n\n# Get the path to the Info.plist\nINFO_PLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\n\n# Update the CFBundleShortVersionString\n/usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $VERSION\" \"$INFO_PLIST\"\n\n# Update the CFBundleVersion\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $COMMIT_HASH\" \"$INFO_PLIST\"\n\necho \"Set version to $VERSION ($COMMIT_HASH) in $INFO_PLIST\"\n";
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
