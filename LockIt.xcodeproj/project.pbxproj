@@ -416,19 +416,27 @@
 				CODE_SIGN_ENTITLEMENTS = LockIt/LockIt.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				DEVELOPMENT_TEAM = 43VDTU96M9;
+				DYLIB_CURRENT_VERSION = "$(MARKETING_VERSION)";
+				"DYLIB_CURRENT_VERSION[arch=*]" = "$(MARKETING_VERSION)";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_FILE[sdk=*]" = LockIt/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "LockIt！";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app uses Bluetooth to detect when your device is nearby.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = "$(MARKETING_VERSION)";
+				"MARKETING_VERSION[sdk=*]" = "$(MARKETING_VERSION)";
+				NEW_SETTING = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.knotding.LockIt;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -445,19 +453,26 @@
 				CODE_SIGN_ENTITLEMENTS = LockIt/LockIt.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				DEVELOPMENT_TEAM = 43VDTU96M9;
+				"DYLIB_CURRENT_VERSION[arch=*]" = "$(MARKETING_VERSION)";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_FILE[sdk=*]" = LockIt/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "LockIt！";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app uses Bluetooth to detect when your device is nearby.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = "$(MARKETING_VERSION)";
+				"MARKETING_VERSION[sdk=*]" = "$(MARKETING_VERSION)";
+				NEW_SETTING = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.knotding.LockIt;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

@@ -22,15 +22,6 @@ jobs:
       with:
         xcode-version: '15.4' # Using a more common version, adjust if needed
 
-    - name: Check macOS Version
-      run: sw_vers
-
-    # --- 自签名证书导入步骤已被完全移除 ---
-
-    - name: Run set_version.sh
-      run: |
-        bash set_version.sh
-
     - name: Get App Version and Release Tag
       id: get_version
       run: |
@@ -50,9 +41,14 @@ jobs:
       run: |
         APP_NAME="LockIt"
         APP_BUNDLE_PATH="build/Build/Products/Release/${APP_NAME}.app"
-
-        # 步骤 1: 构建应用，但禁用 Xcode 的内置签名
-        # 通过设置 CODE_SIGN_IDENTITY="" 和 CODE_SIGNING_REQUIRED=NO，我们告诉 Xcode 在构建阶段不要签名。
+        TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+        if [ -n "$TAG" ]; then
+            VERSION=${TAG#v}
+        else
+            COMMIT_COUNT=$(git rev-list --count HEAD)
+            VERSION="0.0.0-beta.${COMMIT_COUNT}"
+        fi
+        COMMIT_HASH=$(git rev-parse --short HEAD)
         echo "Building the application without signing..."
         xcodebuild clean build \
           -workspace LockIt.xcodeproj/project.xcworkspace \
@@ -60,6 +56,8 @@ jobs:
           -configuration Release \
           -destination "platform=macOS" \
           -derivedDataPath build \
+          MARKETING_VERSION="$VERSION" \
+          CURRENT_PROJECT_VERSION="$COMMIT_HASH" \
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO
 
