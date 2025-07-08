@@ -56,17 +56,10 @@ jobs:
         echo -n "$SIGNING_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
 
         echo "Importing certificate..."
-        security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$P12_PASSWORD" -A
+        security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$P12_PASSWORD" -T /usr/bin/codesign
         if [ $? -ne 0 ]; then
           echo "Certificate import failed."
           exit 1
-        fi
-        
-        echo "Setting key partition list..."
-        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-        if [ $? -ne 0 ]; then
-          echo "Setting key partition list failed."
-          # This might not be a fatal error, so we can choose to continue
         fi
 
         # Add the keychain to the search list
