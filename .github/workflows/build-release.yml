@@ -20,7 +20,7 @@ jobs:
     - name: Set up Xcode version
       uses: maxim-lobanov/setup-xcode@v1
       with:
-        xcode-version: '16.2'
+        xcode-version: '16.2.0'
 
     - name: Get App Version and Release Tag
       id: get_version
