@@ -45,22 +45,47 @@ jobs:
       run: |
         # Create a temporary keychain
         KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-        security create-keychain -p "" $KEYCHAIN_PATH
-        security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-        security unlock-keychain -p "" $KEYCHAIN_PATH
-        
+        KEYCHAIN_PASSWORD=github-actions
+        security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        security default-keychain -s "$KEYCHAIN_PATH"
+
         # Decode and import the certificate
         CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
-        echo -n "$SIGNING_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-        security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -A
-        rm $CERTIFICATE_PATH
+        echo -n "$SIGNING_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+        
+        echo "Importing certificate..."
+        security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$P12_PASSWORD" -A
+        if [ $? -ne 0 ]; then
+          echo "Certificate import failed."
+          exit 1
+        fi
+        
+        echo "Setting key partition list..."
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        if [ $? -ne 0 ]; then
+          echo "Setting key partition list failed."
+          # This might not be a fatal error, so we can choose to continue
+        fi
 
         # Add the keychain to the search list
-        security list-keychains -d user -s $KEYCHAIN_PATH
+        security list-keychains -d user -s "$KEYCHAIN_PATH"
 
         # Find the code signing identity
-        CODE_SIGN_IDENTITY=$(security find-identity -v -p codesigning $KEYCHAIN_PATH | head -n 1 | grep -o '".*"' | tr -d '"')
+        echo "Looking for code signing identity..."
+        security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+        CODE_SIGN_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -n 1 | grep -o '".*"' | tr -d '"')
+
+        if [ -z "$CODE_SIGN_IDENTITY" ]; then
+          echo "Code signing identity not found!"
+          exit 1
+        fi
+        echo "Found identity: $CODE_SIGN_IDENTITY"
         echo "CODE_SIGN_IDENTITY=${CODE_SIGN_IDENTITY}" >> $GITHUB_ENV
+
+        # Clean up
+        rm "$CERTIFICATE_PATH"
 
     - name: Build Application
       run: |
