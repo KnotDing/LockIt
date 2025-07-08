@@ -1,0 +1,104 @@
+name: Build and Release macOS App
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*' # Trigger on tags like v1.0.0
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    permissions:
+      contents: write # Grant write permission for GITHUB_TOKEN to create releases
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Xcode version
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '15.4' # Using a more common version, adjust if needed
+
+    - name: Check macOS Version
+      run: sw_vers
+
+    # --- 自签名证书导入步骤已被完全移除 ---
+
+    - name: Run set_version.sh
+      run: |
+        bash set_version.sh
+
+    - name: Get App Version and Release Tag
+      id: get_version
+      run: |
+        VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" LockIt/Info.plist)
+        BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" LockIt/Info.plist)
+        echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+        echo "APP_BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+
+        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          RELEASE_VERSION=$(echo "${{ github.ref }}" | sed -e "s/refs\/tags\///g")
+        else
+          RELEASE_VERSION="v$VERSION"
+        fi
+        echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_ENV
+
+    - name: Build and Ad-hoc Sign Application
+      run: |
+        APP_NAME="LockIt"
+        APP_BUNDLE_PATH="build/Build/Products/Release/${APP_NAME}.app"
+
+        # 步骤 1: 构建应用，但禁用 Xcode 的内置签名
+        # 通过设置 CODE_SIGN_IDENTITY="" 和 CODE_SIGNING_REQUIRED=NO，我们告诉 Xcode 在构建阶段不要签名。
+        echo "Building the application without signing..."
+        xcodebuild clean build \
+          -workspace LockIt.xcodeproj/project.xcworkspace \
+          -scheme LockIt \
+          -configuration Release \
+          -destination "platform=macOS" \
+          -derivedDataPath build \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO
+
+        # 步骤 2: 对构建好的应用进行手动的即席签名 (Ad-hoc Sign)
+        # 使用 "-" 作为签名身份是 codesign 执行即席签名的标准方式。
+        echo "Applying ad-hoc signature to the application bundle..."
+        codesign --force --deep --sign "-" "${APP_BUNDLE_PATH}"
+
+    - name: Create DMG
+      run: |
+        APP_NAME="LockIt"
+        APP_BUNDLE_PATH="build/Build/Products/Release/${APP_NAME}.app"
+        DMG_NAME="${APP_NAME}-${{ env.RELEASE_VERSION }}.dmg"
+        TEMP_DMG_NAME="${DMG_NAME}.temp.dmg"
+        
+        echo "Creating DMG for: $APP_BUNDLE_PATH"
+        echo "Output DMG: $DMG_NAME"
+
+        hdiutil create -ov -fs HFS+ -volname "${APP_NAME}" -size 100m "${TEMP_DMG_NAME}"
+        hdiutil attach "${TEMP_DMG_NAME}" -mountpoint "/Volumes/${APP_NAME}"
+        cp -R "${APP_BUNDLE_PATH}" "/Volumes/${APP_NAME}/"
+        ln -s /Applications "/Volumes/${APP_NAME}/Applications"
+        hdiutil detach "/Volumes/${APP_NAME}"
+        hdiutil convert "${TEMP_DMG_NAME}" -format UDBZ -o "${DMG_NAME}"
+        rm "${TEMP_DMG_NAME}"
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: LockIt-${{ env.RELEASE_VERSION }}.dmg
+        name: Release ${{ env.RELEASE_VERSION }}
+        tag_name: ${{ github.ref }}
+        body: |
+          # LockIt ${{ env.RELEASE_VERSION }}
+
+          This is an automated release with an ad-hoc signature.
+          
+          ## Changes
+          (Add release notes here)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

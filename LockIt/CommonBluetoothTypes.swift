@@ -24,7 +24,7 @@ struct DiscoveredDevice: Identifiable, Hashable, Equatable {
     }
 }
 
-enum ScanReason: Hashable {
+enum ScanReason {
     case listPopulation
-    case selectedPeripheralMonitoring
+    case appLaunch
 }

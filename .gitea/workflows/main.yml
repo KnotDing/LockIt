@@ -1,0 +1,62 @@
+name: Swift CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*' # Trigger on tags like v1.0, v1.0.1, etc.
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build macOS App
+        run: |
+          xcodebuild -scheme LockIt -configuration Release build -derivedDataPath build
+        env:
+          DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+
+      - name: Create DMG
+        run: |
+          APP_NAME="LockIt"
+          BUILD_PRODUCTS_PATH="build/Build/Products/Release"
+          DMG_NAME="${APP_NAME}.dmg"
+          TEMP_DMG_DIR="dmg_temp"
+          RW_DMG_NAME="${APP_NAME}-rw.dmg" # Temporary read-write DMG name
+
+          mkdir -p "$TEMP_DMG_DIR"
+          cp -R "$BUILD_PRODUCTS_PATH/$APP_NAME.app" "$TEMP_DMG_DIR/"
+
+          # Create a symbolic link to /Applications inside the temporary DMG content directory
+          ln -s /Applications "$TEMP_DMG_DIR/Applications"
+
+          # Create a read-write disk image with a temporary name
+          hdiutil create -volname "$APP_NAME" -srcfolder "$TEMP_DMG_DIR" -ov -format UDRW "$RW_DMG_NAME"
+
+          # Convert to a compressed read-only disk image, outputting to the final DMG_NAME
+          hdiutil convert "$RW_DMG_NAME" -format UDBZ -o "$DMG_NAME"
+
+          # Clean up temporary directory and the temporary read-write DMG
+          rm -rf "$TEMP_DMG_DIR" "$RW_DMG_NAME"
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload DMG as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: LockIt-macOS-App
+          path: LockIt.dmg
+
+      - name: Create Gitea Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          name: Release ${{ github.ref_name }}
+          body: |
+            Automated release for tag ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: LockIt.dmg

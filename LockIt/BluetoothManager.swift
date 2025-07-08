@@ -30,9 +30,14 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private var updateTimer: Timer?
     private var masterDeviceList = [UUID: DiscoveredDevice]()
 
+    private var rssiPollingTimer: Timer?
+    private let rssiPollingInterval: TimeInterval = 1.0 // Poll RSSI every 1 second
+
     @Published var isConnected: Bool = false // Connection status (still useful for lock logic)
 
     var settings: AppSettings? // Reference to AppSettings, now optional
+    private var lockScreenTimer: Timer?
+    var lockScreenAction: (() -> Void)? // Closure to trigger lock screen
 
     override init() {
         super.init()
@@ -47,10 +52,14 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             if let peripheral = peripherals.first {
                 self.selectedPeripheral = peripheral
                 self.selectedPeripheral?.delegate = self
+                #if DEBUG
                 print("BluetoothManager: Restored selected peripheral: \(peripheral.name ?? "Unknown") (ID: \(peripheral.identifier.uuidString))")
+#endif
                 // Automatically connect to the restored peripheral
                 centralManager.connect(peripheral, options: nil)
+                #if DEBUG
                 print("BluetoothManager: Attempting to reconnect to restored peripheral.")
+#endif
             }
         }
     }
@@ -58,26 +67,45 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         switch central.state {
         case .poweredOn:
+            #if DEBUG
             print("CBCentralManager State: Powered On - Bluetooth is available and ready.")
+#endif
+            startScan(reason: .appLaunch)
         case .poweredOff:
+            #if DEBUG
             print("CBCentralManager State: Powered Off - Bluetooth is currently off.")
+#endif
         case .resetting:
+            #if DEBUG
             print("CBCentralManager State: Resetting - Bluetooth is temporarily unavailable.")
+#endif
         case .unauthorized:
+            #if DEBUG
             print("CBCentralManager State: Unauthorized - App is not authorized to use Bluetooth. Check Privacy & Security settings.")
+#endif
         case .unsupported:
+            #if DEBUG
             print("CBCentralManager State: Unsupported - This device does not support Bluetooth Low Energy.")
+#endif
         case .unknown:
+            #if DEBUG
             print("CBCentralManager State: Unknown - Bluetooth state is unknown. Waiting for update.")
+#endif
         @unknown default:
+            #if DEBUG
             print("CBCentralManager State: An unknown state occurred.")
+#endif
         }
     }
 
     func startScan(reason: ScanReason) {
+        #if DEBUG
         print("BluetoothManager: startScan called for reason: \(reason)")
+#endif
         if activeScanReasons.contains(reason) { 
+            #if DEBUG
             print("BluetoothManager: Scan for reason \(reason) already active.")
+#endif
             return 
         } // Already scanning for this reason
 
@@ -97,7 +125,9 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             }
 
             guard centralManager.state == .poweredOn else {
+                #if DEBUG
                 print("Cannot scan, Bluetooth is not powered on or authorized.")
+#endif
                 // Optionally, you could inform the user here.
                 activeScanReasons.remove(reason) // Remove reason if scan can't start
                 return
@@ -108,13 +138,17 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             if reason == .listPopulation {
                 discoveredPeripherals.removeAll() // Clear the array
                 masterDeviceList.removeAll() // Also clear the master list
+                #if DEBUG
                 print("BluetoothManager: Cleared discoveredPeripherals and masterDeviceList for listPopulation.")
+#endif
             }
             
-            // Scan with CBCentralManagerScanOptionAllowDuplicatesKey to get frequent RSSI updates
-            let scanOptions: [String: Any] = [CBCentralManagerScanOptionAllowDuplicatesKey: NSNumber(value: true)]
+            // Scan without CBCentralManagerScanOptionAllowDuplicatesKey by default
+            let scanOptions: [String: Any] = [CBCentralManagerScanOptionAllowDuplicatesKey: NSNumber(value: false)]
             centralManager.scanForPeripherals(withServices: nil, options: scanOptions) // Scan continuously
+            #if DEBUG
             print("BluetoothManager: Started actual CBCentralManager scan.")
+#endif
 
             // Start the timer to process buffered updates.
             updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -124,9 +158,13 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     }
 
     func stopScan(reason: ScanReason) {
+        #if DEBUG
         print("BluetoothManager: stopScan called for reason: \(reason)")
+#endif
         if !activeScanReasons.contains(reason) { 
+            #if DEBUG
             print("BluetoothManager: Scan for reason \(reason) not active.")
+#endif
             return 
         } // Not scanning for this reason
 
@@ -136,14 +174,18 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         if activeScanReasons.isEmpty {
             centralManager.stopScan()
             isScanning = false
+            #if DEBUG
             print("BluetoothManager: Stopped actual CBCentralManager scan. No active reasons remaining.")
+#endif
 
             // Stop the timer and process any remaining buffered updates.
             updateTimer?.invalidate()
             updateTimer = nil
             processBufferedUpdates() // Process any remaining devices in the buffer
         } else {
+            #if DEBUG
             print("BluetoothManager: Scan reason \(reason) removed, but other reasons remain. Scan continues.")
+#endif
         }
     }
 
@@ -152,10 +194,8 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
 
         // Update RSSI for the selected peripheral if it matches
         if peripheral.identifier == selectedPeripheral?.identifier {
-            DispatchQueue.main.async {
-                self.rssi = RSSI
-                print("BluetoothManager: Updated selected peripheral RSSI via discovery: \(RSSI) dBm for \(peripheral.name ?? "Unknown") (ID: \(peripheral.identifier.uuidString))")
-            }
+            // No longer update RSSI from discovery events for selected peripheral
+            // self.rssi = RSSI
         }
 
         // Buffer the discovered device instead of updating the published property directly.
@@ -165,50 +205,113 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     func connect(to peripheral: CBPeripheral) {
         // stopScan() // No longer call stopScan here, let the onChange observers manage it
         selectedPeripheral = peripheral
+        #if DEBUG
         print("BluetoothManager: Selected peripheral set to: \(peripheral.name ?? "Unknown") (ID: \(peripheral.identifier.uuidString))")
+#endif
         selectedPeripheral?.delegate = self
         centralManager.connect(peripheral, options: nil)
+        startRssiPolling()
     }
 
     func disconnect() {
         if let peripheral = selectedPeripheral {
             centralManager.cancelPeripheralConnection(peripheral)
         }
+        stopRssiPolling()
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        #if DEBUG
         print("BluetoothManager: Peripheral connected: \(peripheral.name ?? "Unknown")")
+#endif
         DispatchQueue.main.async {
             self.isConnected = true // Update connection status
+            self.lockScreenTimer?.invalidate() // Invalidate timer on reconnection
+            self.lockScreenTimer = nil
+            #if DEBUG
+            print("BluetoothManager: Lock screen timer invalidated due to reconnection.")
+#endif
         }
-        // No need to discover services or read RSSI here if we only care about discovery RSSI
+        // Start RSSI polling if the connected peripheral is the selected one
+        if peripheral.identifier == selectedPeripheral?.identifier {
+            startRssiPolling()
+        }
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         if let error = error {
+            #if DEBUG
             print("BluetoothManager: Peripheral disconnected with error: \(error.localizedDescription)")
+#endif
         } else {
+            #if DEBUG
             print("BluetoothManager: Peripheral disconnected: \(peripheral.name ?? "Unknown")")
+#endif
         }
         DispatchQueue.main.async {
             self.isConnected = false // Update connection status
+
+            // Start lock screen timer only if a peripheral was previously connected and a disconnect timeout duration is set
+            if let settings = self.settings, settings.disconnectTimeout > 0 && self.selectedPeripheral != nil {
+                self.lockScreenTimer?.invalidate() // Invalidate any existing timer
+                self.lockScreenTimer = Timer.scheduledTimer(withTimeInterval: settings.disconnectTimeout, repeats: false) { [weak self] _ in
+                    self?.triggerLockScreen()
+                }
+                #if DEBUG
+                print("BluetoothManager: Lock screen timer started for \(settings.disconnectTimeout) seconds.")
+#endif
+            }
         }
+    }
+
+    private func triggerLockScreen() {
+        #if DEBUG
+        print("BluetoothManager: Lock screen triggered after timeout.")
+#endif
+        lockScreenAction?() // Call the closure to trigger the lock screen
     }
 
     // This function is no longer used for real-time RSSI updates for selectedPeripheral
     func readRSSI() {
+        #if DEBUG
         print("BluetoothManager: readRSSI() called (no longer actively used for selected peripheral RSSI updates via polling).")
+#endif
         // selectedPeripheral?.readRSSI() // Removed active polling
     }
     
     // This delegate method is still called if readRSSI() was used, but we're not using it for selectedPeripheral anymore
     func peripheral(_ peripheral: CBPeripheral, didReadRSSI RSSI: NSNumber, error: Error?) {
         if let error = error {
+            #if DEBUG
             print("BluetoothManager: Error reading RSSI for \(peripheral.name ?? "Unknown"): \(error.localizedDescription)")
+#endif
             return
         }
-        print("BluetoothManager: Received RSSI update via readRSSI() (not used for selected peripheral display): \(RSSI) dBm")
-        // self.rssi = RSSI // Do not update self.rssi here for selected peripheral
+        DispatchQueue.main.async {
+            self.rssi = RSSI
+            #if DEBUG
+            print("BluetoothManager: Received RSSI update via readRSSI(): \(RSSI) dBm")
+#endif
+        }
+    }
+
+    private func startRssiPolling() {
+        rssiPollingTimer?.invalidate()
+        rssiPollingTimer = Timer.scheduledTimer(withTimeInterval: rssiPollingInterval, repeats: true) { [weak self] _ in
+            guard let self = self, let peripheral = self.selectedPeripheral else { return }
+            peripheral.readRSSI()
+        }
+        #if DEBUG
+        print("BluetoothManager: Started RSSI polling timer.")
+#endif
+    }
+
+    private func stopRssiPolling() {
+        rssiPollingTimer?.invalidate()
+        rssiPollingTimer = nil
+        #if DEBUG
+        print("BluetoothManager: Stopped RSSI polling timer.")
+#endif
     }
 
     // Process the buffered scan results to update the UI in batches.
@@ -225,7 +328,9 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             // Only update the published property if the content has actually changed.
             if self.discoveredPeripherals != updatedPeripherals {
                 self.discoveredPeripherals = updatedPeripherals
+                #if DEBUG
                 print("BluetoothManager: Updated discoveredPeripherals with \(updatedPeripherals.count) devices from master list.")
+#endif
             }
         }
     }
