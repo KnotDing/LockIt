@@ -54,6 +54,7 @@ jobs:
         # Decode and import the certificate
         CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
         echo -n "$SIGNING_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+        echo "Password length: ${#P12_PASSWORD}"
         shasum -a 256 "$CERTIFICATE_PATH"
         echo "Importing certificate..."
         security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$P12_PASSWORD" -A
