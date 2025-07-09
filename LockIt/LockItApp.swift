@@ -233,11 +233,19 @@ struct LaunchAtLoginToggle: View {
     }
 }
 
+// ADDED: A new dedicated view for the Pause/Resume button
 struct PauseButton: View {
-    @Binding var isPaused: Bool
-    let action: () -> Void
+    @ObservedObject var bluetoothManager: BluetoothManager
+
     var body: some View {
-        Button(isPaused ? NSLocalizedString("PAUSE_BUTTON_CONTINUE", comment: "Text for continue button when paused") : NSLocalizedString("PAUSE_BUTTON_PAUSE", comment: "Text for pause button"), action: action)
+        Button(action: {
+            bluetoothManager.togglePause()
+        }) {
+            Text(bluetoothManager.isPaused ? NSLocalizedString("PAUSE_BUTTON_CONTINUE", comment: "Text for continue button when paused") : NSLocalizedString("PAUSE_BUTTON_PAUSE", comment: "Text for pause button"))
+
+        }
+        .buttonStyle(PlainButtonStyle()) // Use PlainButtonStyle to make it look like a clickable icon
+        .help(bluetoothManager.isPaused ? NSLocalizedString("TOOLTIP_RESUME_ACTIVITY", comment: "Tooltip for resuming activity") : NSLocalizedString("TOOLTIP_PAUSE_ACTIVITY", comment: "Tooltip for pausing activity"))
     }
 }
 
@@ -349,7 +357,6 @@ struct AboutView: View {
 struct MenuBarContentView: View {
     @ObservedObject var bluetoothManager: BluetoothManager
     @ObservedObject var settings: AppSettings
-    @Binding var isPaused: Bool
     let lockScreenAction: () -> Void
     let quitAction: () -> Void
     let checkForUpdatesAction: () -> Void
@@ -382,9 +389,7 @@ struct MenuBarContentView: View {
             Button(NSLocalizedString("ABOUT_BUTTON_TITLE", comment: "Title for the About button")) {
                 openWindow(id: "about")
             }
-            PauseButton(isPaused: $isPaused) {
-                isPaused.toggle()
-            }
+            PauseButton(bluetoothManager: bluetoothManager)
             QuitButton(action: quitAction)
         }
     }
@@ -408,14 +413,12 @@ struct LockItApp: App {
     }
     @State private var weakSignalTimer: Timer?
     @State private var disconnectTimer: Timer?
-    @State private var isPaused = false
     @State private var isLockedByApp = false
     var body: some Scene {
         MenuBarExtra(content: {
             MenuBarContentView(
                 bluetoothManager: bluetoothManager,
                 settings: settings,
-                isPaused: $isPaused,
                 lockScreenAction: { self.lockScreen() },
                 quitAction: { NSApplication.shared.terminate(nil) },
                 checkForUpdatesAction: { self.checkForUpdates() }
@@ -439,7 +442,7 @@ struct LockItApp: App {
 
     // MARK: - Computed Properties
     private var imageName: String {
-        if isPaused {
+        if bluetoothManager.isPaused {
             return "lock.slash.fill"
         }
         return bluetoothManager.selectedPeripheral != nil ? "lock.fill" : "lock.open.fill"
@@ -455,7 +458,7 @@ struct LockItApp: App {
     }
 
     private func handleRssiChange(_ newRssi: NSNumber) {
-        guard !isPaused else { return }
+        guard !bluetoothManager.isPaused else { return }
 
         // If screen on is disabled, don't check for strong signals
         if settings.screenOnSignalThreshold == 0 {
@@ -512,7 +515,7 @@ struct LockItApp: App {
     }
 
     private func lockScreen() {
-        guard !isPaused else { return }
+        guard !bluetoothManager.isPaused else { return }
 
         let command: String
         switch settings.lockMode {
