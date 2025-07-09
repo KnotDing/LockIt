@@ -17,6 +17,7 @@ class AppSettings: ObservableObject {
     @AppStorage("selectedLanguageCode") var selectedLanguageCode: String? // New property for language
     @AppStorage("pauseMediaOnLock") var pauseMediaOnLock: Bool = false // New property
     @AppStorage("wakeOnAutoLockOnly") var wakeOnAutoLockOnly: Bool = false // New property
+    @AppStorage("skippedVersion") var skippedVersion: String = "" // For update skipping
     
     @Published var launchAtLoginEnabled: Bool = false
 
@@ -291,24 +292,56 @@ struct LanguageSelectionMenu: View {
     }
 }
 
+// MARK: - Helper for window access
+struct HostingWindowFinder: NSViewRepresentable {
+    var callback: (NSWindow?) -> ()
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { [weak view] in
+            self.callback(view?.window)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
 // MARK: - About View
 struct AboutView: View {
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 15) {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
-                .frame(width: 64, height: 64)
-            Text(Bundle.main.appName)
-                .font(.headline)
-            Text(String(format: NSLocalizedString("ABOUT_VERSION_FORMAT", comment: "Version format string in About window"), Bundle.main.appVersion, Bundle.main.appBuild))
-                .font(.subheadline)
+                .frame(width: 80, height: 80)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(radius: 5)
+
+            VStack(spacing: 5) {
+                Text(Bundle.main.appName)
+                    .font(.title2.bold())
+                Text(String(format: NSLocalizedString("ABOUT_VERSION_FORMAT", comment: "Version format string in About window"), Bundle.main.appVersion, Bundle.main.appBuild))
+                    .font(.body)
+                    .foregroundColor(.secondary)
+            }
+
+            Divider()
+
             HStack {
                 Text(NSLocalizedString("ABOUT_REPOSITORY_LABEL", comment: "Label for the repository link in About window"))
                 Link("KnotDing/LockIt", destination: URL(string: "https://github.com/KnotDing/LockIt")!)
             }
+            .font(.callout)
         }
-        .padding()
-        .fixedSize()
+        .padding(20)
+        .frame(minWidth: 300)
+        .background(.regularMaterial)
+        .background(HostingWindowFinder { window in
+            window?.standardWindowButton(.miniaturizeButton)?.isHidden = true
+            window?.standardWindowButton(.zoomButton)?.isHidden = true
+            window?.titlebarAppearsTransparent = true
+            window?.isMovableByWindowBackground = true
+        })
     }
 }
 
@@ -319,6 +352,7 @@ struct MenuBarContentView: View {
     @Binding var isPaused: Bool
     let lockScreenAction: () -> Void
     let quitAction: () -> Void
+    let checkForUpdatesAction: () -> Void
     
     @Environment(\.openWindow) private var openWindow
 
@@ -342,6 +376,9 @@ struct MenuBarContentView: View {
             Toggle(NSLocalizedString("PAUSE_MEDIA_ON_LOCK_TOGGLE_TITLE", comment: "Toggle title for pause media on lock"), isOn: $settings.pauseMediaOnLock)
             Divider()
             LanguageSelectionMenu(settings: settings)
+            Button(NSLocalizedString("CHECK_FOR_UPDATES_BUTTON_TITLE", comment: "Title for the Check for Updates button")) {
+                checkForUpdatesAction()
+            }
             Button(NSLocalizedString("ABOUT_BUTTON_TITLE", comment: "Title for the About button")) {
                 openWindow(id: "about")
             }
@@ -380,7 +417,8 @@ struct LockItApp: App {
                 settings: settings,
                 isPaused: $isPaused,
                 lockScreenAction: { self.lockScreen() },
-                quitAction: { NSApplication.shared.terminate(nil) }
+                quitAction: { NSApplication.shared.terminate(nil) },
+                checkForUpdatesAction: { self.checkForUpdates() }
             )
             .onAppear {
                 _bluetoothManager.wrappedValue.setup(settings: _settings.wrappedValue)
@@ -512,7 +550,110 @@ struct LockItApp: App {
             osascriptTask.launch()
         }
     }
+    
+    // MARK: - Update Checking
+    private func checkForUpdates() {
+        #if DEBUG
+        print("Checking for updates...")
+        #endif
+        guard let url = URL(string: "https://api.github.com/repos/KnotDing/LockIt/releases/latest") else { return }
+
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error = error {
+                #if DEBUG
+                print("Update check failed with error: \(error.localizedDescription)")
+                #endif
+                return
+            }
+
+            guard let data = data else {
+                #if DEBUG
+                print("Update check failed: No data received.")
+                #endif
+                return
+            }
+            
+            #if DEBUG
+            if let dataString = String(data: data, encoding: .utf8) {
+                print("Received data from GitHub API: \(dataString)")
+            }
+            #endif
+
+            do {
+                let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
+                #if DEBUG
+                print("Successfully decoded release: \(release)")
+                #endif
+                
+                let latestVersion = release.tagName
+                let currentVersion = "v" + Bundle.main.appVersion
+                
+                #if DEBUG
+                print("Comparing versions: Latest='\(latestVersion)', Current='\(currentVersion)', Skipped='\(self.settings.skippedVersion)'")
+                #endif
+                
+                DispatchQueue.main.async {
+                    if latestVersion != currentVersion && latestVersion != self.settings.skippedVersion {
+                        #if DEBUG
+                        print("New version found. Showing update alert.")
+                        #endif
+                        self.showUpdateAlert(latestVersion: latestVersion, downloadURL: release.htmlURL)
+                    } else {
+                        #if DEBUG
+                        print("Version is up-to-date or skipped. Showing 'up to date' alert.")
+                        #endif
+                        self.showUpToDateAlert()
+                    }
+                }
+            } catch {
+                #if DEBUG
+                print("Failed to decode GitHub release JSON: \(error)")
+                #endif
+            }
+        }.resume()
+    }
+
+    private func showUpdateAlert(latestVersion: String, downloadURL: String) {
+        let alert = NSAlert()
+        alert.messageText = String(format: NSLocalizedString("UPDATE_AVAILABLE_ALERT_TITLE", comment: "Title for update available alert"), latestVersion)
+        alert.informativeText = NSLocalizedString("UPDATE_AVAILABLE_ALERT_MESSAGE", comment: "Message for update available alert")
+        alert.addButton(withTitle: NSLocalizedString("UPDATE_AVAILABLE_ALERT_UPDATE_NOW", comment: "Update Now button for update alert"))
+        alert.addButton(withTitle: NSLocalizedString("UPDATE_AVAILABLE_ALERT_SKIP_VERSION", comment: "Skip This Version button for update alert"))
+        alert.addButton(withTitle: NSLocalizedString("UPDATE_AVAILABLE_ALERT_CANCEL", comment: "Cancel button for update alert"))
+
+        let response = alert.runModal()
+        switch response {
+        case .alertFirstButtonReturn: // Update Now
+            if let url = URL(string: downloadURL) {
+                NSWorkspace.shared.open(url)
+            }
+        case .alertSecondButtonReturn: // Skip This Version
+            self.settings.skippedVersion = latestVersion
+        default:
+            break
+        }
+    }
+
+    private func showUpToDateAlert() {
+        let alert = NSAlert()
+        alert.messageText = NSLocalizedString("UP_TO_DATE_ALERT_TITLE", comment: "Title for up to date alert")
+        alert.informativeText = String(format: NSLocalizedString("UP_TO_DATE_ALERT_MESSAGE", comment: "Message for up to date alert"), Bundle.main.appVersion)
+        alert.addButton(withTitle: NSLocalizedString("UP_TO_DATE_ALERT_OK", comment: "OK button for up to date alert"))
+        alert.runModal()
+    }
 }
+
+// MARK: - GitHub Release Model
+struct GitHubRelease: Decodable {
+    let tagName: String
+    let htmlURL: String
+
+    enum CodingKeys: String, CodingKey {
+        case tagName = "tag_name"
+        case htmlURL = "html_url"
+    }
+}
+
 
 // MARK: - Bundle Extension
 extension Bundle {

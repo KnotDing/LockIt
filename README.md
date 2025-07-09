@@ -18,6 +18,15 @@
 *   **简洁菜单栏**：小巧精致的菜单栏图标，不占空间，状态一目了然，操作也超简单！🖥️
 *   **锁定时暂停播放**：当你离开电脑时，LockIt 不仅能锁屏，还能帮你暂停正在播放的音乐或视频，保护你的隐私，也避免打扰到他人！🔇
 
+### 🔐 权限与安全
+
+我们非常重视你的隐私和安全！LockIt 在设计时就将这一点放在了首位。为了实现智能锁定功能，应用会使用以下系统功能：
+
+*   **蓝牙**：这是 LockIt 的核心！应用启动后会请求**蓝牙权限**，用于发现你的蓝牙设备（如手机、手表）并监测其信号强度。没有它，我们就无法知道你何时离开或回来。
+*   **系统事件控制**：为了自动锁定屏幕、启动屏保以及暂停媒体播放，LockIt 会向系统发送相应的控制命令（例如 `pmset`, `open -a ScreenSaverEngine`, 以及通过 AppleScript 控制媒体键）。这些操作是 macOS 的标准功能，通常不需要弹出权限请求。
+
+**请放心**：LockIt 只会将这些权限和功能用于其核心的自动锁定/解锁目的。我们**不会**收集、存储或分享任何你的个人数据或设备信息。所有操作都在你的电脑本地进行，一切尽在你的掌控之中。你的信任是我们最宝贵的财富！❤️
+
 ### 🚀 轻松上手指南
 
 1.  **构建与运行**：
@@ -51,7 +60,9 @@ git clone https://github.com/your-username/LockIt.git
 cd LockIt
 
 # 构建项目，见证奇迹的发生！
-xcodebuild build -configuration Release
+# 你可以通过构建参数来指定版本号和构建号，例如：
+# VERSION="1.2.3" COMMIT_HASH="12345"
+xcodebuild build -configuration Release MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$COMMIT_HASH"
 ```
 
 构建成功后，你会在 `build/Release/` 目录下找到 `LockIt.app`。快去体验吧！🥳

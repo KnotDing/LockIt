@@ -1,4 +1,3 @@
-
 "LOCK_MODE_LOCK_SCREEN" = "Blocca schermo";
 "LOCK_MODE_SCREEN_SAVER" = "Avvia salvaschermo";
 "LOCK_MODE_MENU_TITLE" = "Modalità di blocco (%@)";
@@ -31,4 +30,12 @@
 "ABOUT_WINDOW_TITLE" = "Informazioni su LockIt";
 "ABOUT_VERSION_FORMAT" = "Versione %@ (%@)";
 "ABOUT_REPOSITORY_LABEL" = "Repository:";
-
+"CHECK_FOR_UPDATES_BUTTON_TITLE" = "Check for Updates";
+"UPDATE_AVAILABLE_ALERT_TITLE" = "Update Available (%@)";
+"UPDATE_AVAILABLE_ALERT_MESSAGE" = "A new version of LockIt is available. Would you like to update now?";
+"UPDATE_AVAILABLE_ALERT_UPDATE_NOW" = "Update Now";
+"UPDATE_AVAILABLE_ALERT_SKIP_VERSION" = "Skip This Version";
+"UPDATE_AVAILABLE_ALERT_CANCEL" = "Later";
+"UP_TO_DATE_ALERT_TITLE" = "You're Up to Date!";
+"UP_TO_DATE_ALERT_MESSAGE" = "You are currently running the latest version of LockIt (%@).";
+"UP_TO_DATE_ALERT_OK" = "OK";

@@ -16,6 +16,15 @@ LockIt is a super cool macOS menu bar application designed to boost your device 
 *   **Sleek Menu Bar Integration**: A tiny, elegant icon in your menu bar that's always there, showing you the status at a glance. Simple and effective! 🖥️
 *   **Pause on Lock**: When you step away, LockIt doesn't just lock your screen; it can also pause your music or videos! Keep your privacy intact and avoid disturbing others. 🔇
 
+### 🔐 Permissions & Security
+
+We take your privacy and security very seriously! LockIt was designed with this as a top priority. To perform its smart-locking magic, the app uses the following system features:
+
+*   **Bluetooth**: This is the heart of LockIt! The app will request **Bluetooth Permission** after it launches to discover your Bluetooth devices (like your phone or smartwatch) and monitor their signal strength. Without it, we can't tell when you've left or returned.
+*   **System Event Control**: To automatically lock the screen, start the screensaver, and pause media, LockIt sends the corresponding control commands to the system (e.g., `pmset`, `open -a ScreenSaverEngine`, and controlling media keys via AppleScript). These are standard macOS functions and usually don't require a permission prompt.
+
+**Rest Assured**: LockIt only uses these permissions and features for its core purpose of automatic locking and unlocking. We **do not** collect, store, or share any of your personal data or device information. Everything happens locally on your computer, and you are in complete control. Your trust is our most valuable asset! ❤️
+
 ### 🚀 How to Get Started (It's a Breeze!)
 
 1.  **Build and Run**:
@@ -49,7 +58,9 @@ git clone https://github.com/your-username/LockIt.git
 cd LockIt
 
 # Build the project and witness the magic unfold!
-xcodebuild build -configuration Release
+# You can specify the version and build number via build parameters, for example:
+# VERSION="1.2.3" COMMIT_HASH="12345"
+xcodebuild build -configuration Release MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$COMMIT_HASH"
 ```
 
 After a successful build, you'll find `LockIt.app` chilling in the `build/Release/` directory. Go on, give it a whirl! 🥳
