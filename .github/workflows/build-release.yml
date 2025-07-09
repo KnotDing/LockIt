@@ -33,6 +33,7 @@ jobs:
             VERSION="0.0.0-beta.${COMMIT_COUNT}"
         fi
         echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
+
     - name: Build Application
       run: |
         APP_NAME="LockIt"
@@ -52,6 +53,7 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
         # Ad-hoc sign the application bundle
         codesign --force --deep --sign - "${APP_BUNDLE_PATH}"
+
     - name: Create DMG
       run: |
         APP_NAME="LockIt"
@@ -70,6 +72,13 @@ jobs:
         hdiutil convert "${TEMP_DMG_NAME}" -format UDBZ -o "${DMG_NAME}"
         rm "${TEMP_DMG_NAME}"
 
+    - name: Build Changelog
+      if: startsWith(github.ref, 'refs/tags/v')
+      id: changelog_builder
+      uses: mikepenz/release-changelog-builder-action@v4
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Create GitHub Release
       if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v1
@@ -77,12 +86,6 @@ jobs:
         files: LockIt-${{ env.RELEASE_VERSION }}.dmg
         name: Release ${{ env.RELEASE_VERSION }}
         tag_name: ${{ github.ref }}
-        body: |
-          # LockIt ${{ env.RELEASE_VERSION }}
-
-          This is an automated release with an ad-hoc signature.
-          
-          ## Changes
-          (Add release notes here)
+        body: ${{ steps.changelog_builder.outputs.changelog }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
