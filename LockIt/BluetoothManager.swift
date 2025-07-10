@@ -24,7 +24,7 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private var cleanupTimer: Timer?
     private let deviceTimeoutInterval: TimeInterval = 5.0
     private var lockScreenTimer: Timer?
-    
+    var isMenuActive: Bool = false
     // Dependencies
     var settings: AppSettings?
     var lockScreenAction: (() -> Void)?
@@ -230,6 +230,7 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     
     // MARK: - Timed Helper Functions
     private func processBufferedUpdates() {
+        guard !isMenuActive else { return }
         guard !scanBuffer.isEmpty else { return }
         DispatchQueue.main.async {
             self.scanBuffer.forEach { self.masterDeviceList[$0.key] = $0.value }

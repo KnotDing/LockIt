@@ -32,39 +32,35 @@ class AppSettings: ObservableObject {
 
     func toggleLaunchAtLogin() {
         if launchAtLoginEnabled {
-            disableLaunchAtLogin()
-        } else {
             enableLaunchAtLogin()
+        } else {
+            disableLaunchAtLogin()
         }
     }
 
     private func enableLaunchAtLogin() {
         do {
             try SMAppService.mainApp.register()
-            launchAtLoginEnabled = true
             #if DEBUG
             print("Successfully enabled launch at login.")
-#endif
+            #endif
         } catch {
             #if DEBUG
             print("Failed to enable launch at login: \(error.localizedDescription)")
-#endif
-            launchAtLoginEnabled = false
+            #endif
         }
     }
 
     private func disableLaunchAtLogin() {
         do {
             try SMAppService.mainApp.unregister()
-            launchAtLoginEnabled = false
             #if DEBUG
             print("Successfully disabled launch at login.")
-#endif
+            #endif
         } catch {
             #if DEBUG
             print("Failed to disable launch at login: \(error.localizedDescription)")
-#endif
-            launchAtLoginEnabled = true
+            #endif
         }
     }
 }
@@ -97,7 +93,7 @@ struct ConnectedDeviceStatusView: View {
         if bluetoothManager.selectedPeripheral == nil {
             Text(NSLocalizedString("NO_DEVICE_CONNECTED", comment: "Text displayed when no device is connected")).disabled(true)
         } else {
-            Text(String(format: NSLocalizedString("CONNECTED_DEVICE_STATUS", comment: "Text showing connected device status"), bluetoothManager.selectedPeripheral?.name ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name"), bluetoothManager.rssi.stringValue))
+            Text(String(format: NSLocalizedString("CONNECTED_DEVICE_STATUS", comment: "Text showing connected device status"), bluetoothManager.selectedPeripheral?.name ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name"), bluetoothManager.rssi.intValue))
         }
     }
 }
@@ -108,9 +104,9 @@ struct DiscoveredDeviceRow: View {
 
     var body: some View {
         Button(String(format: NSLocalizedString("DISCOVERED_DEVICE_FORMAT", comment: "Format string for discovered device row"),
-                      discoveredDevice.peripheral.name ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name"),
-                      discoveredDevice.peripheral.identifier.uuidString.prefix(8).description,
-                      discoveredDevice.rssi.stringValue)) { // Fixed: Use peripheral.name
+            discoveredDevice.peripheral.name ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name"),
+            discoveredDevice.peripheral.identifier.uuidString.prefix(8).description,
+            discoveredDevice.rssi.stringValue)) { // Fixed: Use peripheral.name
             connectAction(discoveredDevice.peripheral)
         }
     }
@@ -121,16 +117,7 @@ struct SelectBluetoothDeviceMenu: View {
     let connectAction: (CBPeripheral) -> Void
 
     var body: some View {
-        #if DEBUG
-        print("SelectBluetoothDeviceMenu: body re-evaluated. Discovered count: \(bluetoothManager.discoveredPeripherals.count)")
-#endif
-        for device in bluetoothManager.discoveredPeripherals {
-            #if DEBUG
-            print("  Device in list: \(device.peripheral.name ?? "Unknown") (ID: \(device.id.uuidString)) RSSI: \(device.rssi) dBm")
-#endif
-        }
-
-        return Menu(NSLocalizedString("SELECT_BLUETOOTH_DEVICE_MENU_TITLE", comment: "Menu title for selecting Bluetooth device")) {
+        return Menu(String(format:NSLocalizedString("SELECT_BLUETOOTH_DEVICE_MENU_TITLE", comment: "Menu title for selecting Bluetooth device"), bluetoothManager.selectedPeripheral?.name ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name"))) {
             if bluetoothManager.discoveredPeripherals.isEmpty {
                 Text(NSLocalizedString("SCANNING_STATUS", comment: "Text indicating scanning in progress")).disabled(true)
             }
@@ -138,18 +125,6 @@ struct SelectBluetoothDeviceMenu: View {
             ForEach(bluetoothManager.discoveredPeripherals) { discoveredDevice in
                 DiscoveredDeviceRow(discoveredDevice: discoveredDevice, connectAction: connectAction)
             }
-        }
-        .onAppear {
-            #if DEBUG
-        print("SelectBluetoothDeviceMenu: onAppear called. Starting listPopulation scan.")
-#endif
-            bluetoothManager.startScan(reason: .listPopulation)
-        }
-        .onDisappear {
-            #if DEBUG
-        print("SelectBluetoothDeviceMenu: onDisappear called. Stopping listPopulation scan.")
-#endif
-            bluetoothManager.stopScan(reason: .listPopulation)
         }
     }
 }
@@ -205,7 +180,7 @@ struct DisconnectTimeoutMenu: View {
     @ObservedObject var settings: AppSettings
     var body: some View {
         Menu(String(format: NSLocalizedString("DISCONNECT_TIMEOUT_MENU_TITLE", comment: "Menu title for disconnect timeout"), Int(settings.disconnectTimeout))) {
-            ForEach([0, 5, 10, 20, 30], id: \.self) { value in
+            ForEach([5, 10, 20, 30], id: \.self) { value in
                 Button(String(format: NSLocalizedString("SECONDS_VALUE_FORMAT", comment: "Format for seconds value"), value)) { settings.disconnectTimeout = TimeInterval(value) }
             }
         }
@@ -242,9 +217,7 @@ struct PauseButton: View {
             bluetoothManager.togglePause()
         }) {
             Text(bluetoothManager.isPaused ? NSLocalizedString("PAUSE_BUTTON_CONTINUE", comment: "Text for continue button when paused") : NSLocalizedString("PAUSE_BUTTON_PAUSE", comment: "Text for pause button"))
-
         }
-        .buttonStyle(PlainButtonStyle()) // Use PlainButtonStyle to make it look like a clickable icon
         .help(bluetoothManager.isPaused ? NSLocalizedString("TOOLTIP_RESUME_ACTIVITY", comment: "Tooltip for resuming activity") : NSLocalizedString("TOOLTIP_PAUSE_ACTIVITY", comment: "Tooltip for pausing activity"))
     }
 }
@@ -445,7 +418,7 @@ struct LockItApp: App {
         if bluetoothManager.isPaused {
             return "lock.slash.fill"
         }
-        return bluetoothManager.selectedPeripheral != nil ? "lock.fill" : "lock.open.fill"
+        return settings.selectedPeripheralUUID != nil ? "lock.fill" : "lock.open.fill"
     }
 
     // MARK: - Core Logic
@@ -496,7 +469,7 @@ struct LockItApp: App {
                 }
                 #if DEBUG
                 print("LockItApp: Screen turned on.")
-#endif
+                #endif
                 let task = Process()
                 task.launchPath = "/usr/bin/caffeinate"
                 task.arguments = ["-u", "-t", "1"]
@@ -505,7 +478,7 @@ struct LockItApp: App {
             } else {
                 #if DEBUG
                 print("LockItApp: Screen is already unlocked, not turning on.")
-#endif
+                #endif
             }
         }
         else {
@@ -521,20 +494,16 @@ struct LockItApp: App {
         switch settings.lockMode {
         case .lockScreen:
             command = "pmset displaysleepnow"
-#if DEBUG
-            print("LockScreen: Executing command: \(command)")
-#endif
             #if DEBUG
+            print("LockScreen: Executing command: \(command)")
             print("LockItApp: Screen locked.")
-#endif
+            #endif
         case .screenSaver:
             command = "open -a ScreenSaverEngine"
-#if DEBUG
-            print("LockScreen: Executing command: \(command)")
-#endif
             #if DEBUG
+            print("LockScreen: Executing command: \(command)")
             print("LockItApp: Screen saver activated.")
-#endif
+            #endif
         }
 
         let task = Process()

@@ -6,7 +6,7 @@
 "CONNECTED_DEVICE_STATUS" = "已連接: %@ (%@ dBm)";
 "UNKNOWN_DEVICE" = "未知設備";
 "DISCOVERED_DEVICE_FORMAT" = "%@ (ID: %@... | RSSI: %@ dBm)";
-"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "目標設備";
+"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "目標設備 (%@)";
 "SCANNING_STATUS" = "掃描中...";
 "WEAK_SIGNAL_THRESHOLD_MENU_TITLE" = "鎖定閾值 (%d dBm)";
 "DBM_VALUE_FORMAT" = "%d dBm";

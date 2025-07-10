@@ -6,7 +6,7 @@
 "CONNECTED_DEVICE_STATUS" = "Verbunden: %@ (%@ dBm)";
 "UNKNOWN_DEVICE" = "Unbekanntes Gerät";
 "DISCOVERED_DEVICE_FORMAT" = "%@ (ID: %@... | RSSI: %@ dBm)";
-"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "Zielgerät";
+"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "Zielgerät (%@)";
 "SCANNING_STATUS" = "Scannt...";
 "WEAK_SIGNAL_THRESHOLD_MENU_TITLE" = "Sperrschwelle (%d dBm)";
 "DBM_VALUE_FORMAT" = "%d dBm";

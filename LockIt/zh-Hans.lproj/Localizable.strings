@@ -3,10 +3,10 @@
 "LOCK_MODE_MENU_TITLE" = "锁定方式 (%@)";
 "LOCK_NOW_BUTTON_TITLE" = "立即锁定";
 "NO_DEVICE_CONNECTED" = "未连接设备";
-"CONNECTED_DEVICE_STATUS" = "已连接: %@ (%@ dBm)";
+"CONNECTED_DEVICE_STATUS" = "已连接: %20@ (%3d dBm)";
 "UNKNOWN_DEVICE" = "未知设备";
 "DISCOVERED_DEVICE_FORMAT" = "%@ (ID: %@... | RSSI: %@ dBm)";
-"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "目标设备";
+"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "目标设备 (%@)";
 "SCANNING_STATUS" = "扫描中...";
 "WEAK_SIGNAL_THRESHOLD_MENU_TITLE" = "锁定阈值 (%d dBm)";
 "DBM_VALUE_FORMAT" = "%d dBm";

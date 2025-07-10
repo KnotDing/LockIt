@@ -6,7 +6,7 @@
 "CONNECTED_DEVICE_STATUS" = "연결됨: %@ (%@ dBm)";
 "UNKNOWN_DEVICE" = "알 수 없는 장치";
 "DISCOVERED_DEVICE_FORMAT" = "%@ (ID: %@... | RSSI: %@ dBm)";
-"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "대상 장치";
+"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "대상 장치 (%@)";
 "SCANNING_STATUS" = "스캔 중...";
 "WEAK_SIGNAL_THRESHOLD_MENU_TITLE" = "잠금 임계값 (%d dBm)";
 "DBM_VALUE_FORMAT" = "%d dBm";

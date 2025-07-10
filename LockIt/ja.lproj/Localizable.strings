@@ -6,7 +6,7 @@
 "CONNECTED_DEVICE_STATUS" = "接続済み: %@ (%@ dBm)";
 "UNKNOWN_DEVICE" = "不明なデバイス";
 "DISCOVERED_DEVICE_FORMAT" = "%@ (ID: %@... | RSSI: %@ dBm)";
-"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "ターゲットデバイス";
+"SELECT_BLUETOOTH_DEVICE_MENU_TITLE" = "ターゲットデバイス (%@)";
 "SCANNING_STATUS" = "スキャン中...";
 "WEAK_SIGNAL_THRESHOLD_MENU_TITLE" = "ロックしきい値 (%d dBm)";
 "DBM_VALUE_FORMAT" = "%d dBm";
