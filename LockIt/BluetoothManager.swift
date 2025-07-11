@@ -4,6 +4,8 @@ import AppKit
 import Foundation
 
 class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate, ObservableObject {
+    
+    static let shared = BluetoothManager()
     // MARK: - Published Properties
     @Published var discoveredPeripherals = [DiscoveredDevice]()
     @Published var selectedPeripheral: CBPeripheral? {
@@ -13,21 +15,21 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     }
     @Published var rssi: NSNumber = 0
     @Published var isScanning = false
-    @Published var isPaused: Bool = false // ADDED: The master pause state for the entire manager
+    
 
     // MARK: - Private Properties
     private var centralManager: CBCentralManager!
-    private var activeScanReasons: Set<ScanReason> = []
     private var scanBuffer = [UUID: DiscoveredDevice]()
     private var updateTimer: Timer?
     private var masterDeviceList = [UUID: DiscoveredDevice]()
     private var cleanupTimer: Timer?
     private let deviceTimeoutInterval: TimeInterval = 5.0
     private var lockScreenTimer: Timer?
-    var isMenuActive: Bool = false
+    private var _isPaused: Bool = false // Internal pause state
     // Dependencies
     var settings: AppSettings?
     var lockScreenAction: (() -> Void)?
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Initialization
     override init() {
@@ -47,45 +49,46 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
                 #endif
             }
         }
+        
+        // Subscribe to changes in settings.isPaused
+        settings.$isPaused
+            .sink { [weak self] newIsPaused in
+                guard let self = self else { return }
+                self._isPaused = newIsPaused
+                self.applyPauseState(newIsPaused)
+            }
+            .store(in: &cancellables)
+        
+        // Apply initial pause state
+        self._isPaused = settings.isPaused
+        applyPauseState(settings.isPaused)
     }
-    
-    // ADDED: The main function to pause and resume all activities
-    func togglePause() {
-        isPaused.toggle()
-        #if DEBUG
-        print("BluetoothManager: Pause state toggled to \(isPaused)")
-        #endif
 
+    private func applyPauseState(_ isPaused: Bool) {
+        #if DEBUG
+        print("BluetoothManager: Applying pause state: \(isPaused)")
+        #endif
         if isPaused {
             // --- PAUSING ---
-            // Stop the main scan immediately
             centralManager.stopScan()
-            isScanning = false // Update UI state
-
-            // Invalidate all timers to halt all background activity
+            self.isScanning = false
             updateTimer?.invalidate()
             updateTimer = nil
             cleanupTimer?.invalidate()
             cleanupTimer = nil
             lockScreenTimer?.invalidate()
             lockScreenTimer = nil
-            
             #if DEBUG
             print("BluetoothManager: All activities and timers paused.")
             #endif
-
         } else {
             // --- RESUMING ---
             #if DEBUG
             print("BluetoothManager: Resuming all activities.")
             #endif
-            // Restart the scanning process. This will re-initialize the necessary timers.
-            // We ensure a clean start by clearing reasons first.
-            activeScanReasons.removeAll()
-            startScan(reason: .appLaunch)
+            self.startScan()
         }
     }
-
 
     // MARK: - CBCentralManagerDelegate
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
@@ -94,7 +97,7 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             #if DEBUG
             print("CBCentralManager State: Powered On")
             #endif
-            startScan(reason: .appLaunch)
+            startScan()
         default:
             #if DEBUG
             print("CBCentralManager State: Not Powered On (\(central.state.rawValue))")
@@ -104,7 +107,7 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
         // MODIFIED: We still discover devices in the background, but timers won't process them if paused.
-        guard !isPaused, let name = peripheral.name, !name.isEmpty else { return }
+        guard !self._isPaused, let name = peripheral.name, !name.isEmpty else { return }
 
         if peripheral.identifier == selectedPeripheral?.identifier {
             DispatchQueue.main.async {
@@ -143,19 +146,16 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     }
 
     // MARK: - Scanning Logic
-    func startScan(reason: ScanReason) {
+    func startScan() {
         // MODIFIED: Added guard to prevent scanning if paused
-        guard !isPaused else {
+        guard !self._isPaused else {
             #if DEBUG
             print("BluetoothManager: startScan ignored because manager is paused.")
             #endif
             return
         }
         
-        if activeScanReasons.contains(reason) { return }
-        activeScanReasons.insert(reason)
-
-        if activeScanReasons.count == 1 && centralManager.state == .poweredOn {
+        if centralManager.state == .poweredOn {
             isScanning = true
             let scanOptions: [String: Any] = [CBCentralManagerScanOptionAllowDuplicatesKey: NSNumber(value: true)]
             centralManager.scanForPeripherals(withServices: nil, options: scanOptions)
@@ -163,26 +163,29 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             print("BluetoothManager: Started central scan with duplicates allowed.")
             #endif
 
-            updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in self?.processBufferedUpdates() }
-            cleanupTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in self?.removeStalePeripherals() }
+            // --- 添加这个健壮性检查 ---
+            // 在创建新定时器之前，先销毁任何已存在的定时器。
+            updateTimer?.invalidate()
+            cleanupTimer?.invalidate()
+            //
+            
+            // 1. 创建 Timer 实例
+            let newUpdateTimer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+                self?.processBufferedUpdates()
+            }
+            // 2. 手动将其添加到 common 模式的 RunLoop 中
+            RunLoop.current.add(newUpdateTimer, forMode: .common)
+            self.updateTimer = newUpdateTimer
+
+            // 对 cleanupTimer 做同样的操作
+            let newCleanupTimer = Timer(timeInterval: 5.0, repeats: true) { [weak self] _ in
+                self?.removeStalePeripherals()
+            }
+            RunLoop.current.add(newCleanupTimer, forMode: .common)
+            self.cleanupTimer = newCleanupTimer
         }
     }
 
-    func stopScan(reason: ScanReason) {
-        activeScanReasons.remove(reason)
-        if activeScanReasons.isEmpty {
-            centralManager.stopScan()
-            isScanning = false
-            updateTimer?.invalidate()
-            updateTimer = nil
-            cleanupTimer?.invalidate()
-            cleanupTimer = nil
-            processBufferedUpdates()
-            #if DEBUG
-            print("BluetoothManager: Stopped central scan. All reasons removed.")
-            #endif
-        }
-    }
 
     // MARK: - Device and Lock Management
     func connect(to peripheral: CBPeripheral) {
@@ -207,7 +210,7 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
 
     private func handleLockScreenLogic(for peripheral: CBPeripheral, reason: String) {
         // MODIFIED: Added guard to prevent lock logic if paused
-        guard !isPaused else {
+        guard !self._isPaused else {
             #if DEBUG
             print("BluetoothManager: handleLockScreenLogic ignored because manager is paused.")
             #endif
@@ -230,11 +233,16 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     
     // MARK: - Timed Helper Functions
     private func processBufferedUpdates() {
-        guard !isMenuActive else { return }
+        #if DEBUG
+        print("BluetoothManager: Update devices from UI list")
+        #endif
         guard !scanBuffer.isEmpty else { return }
         DispatchQueue.main.async {
             self.scanBuffer.forEach { self.masterDeviceList[$0.key] = $0.value }
             self.scanBuffer.removeAll()
+            #if DEBUG
+            print("BluetoothManager: Update stale device from UI list")
+            #endif
             let updatedPeripherals = Array(self.masterDeviceList.values).sorted { $0.peripheral.name ?? "" < $1.peripheral.name ?? "" }
             if self.discoveredPeripherals != updatedPeripherals {
                 self.discoveredPeripherals = updatedPeripherals

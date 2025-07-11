@@ -14,16 +14,28 @@ class AppSettings: ObservableObject {
     @AppStorage("disconnectTimeout") var disconnectTimeout: TimeInterval = 5.0
     @AppStorage("lockMode") var lockMode: LockMode = .lockScreen
     @AppStorage("selectedPeripheralUUID") var selectedPeripheralUUID: String? // New property
+    @AppStorage("selectedPeripheralName") var selectedPeripheralName: String? // New property
     @AppStorage("selectedLanguageCode") var selectedLanguageCode: String? // New property for language
     @AppStorage("pauseMediaOnLock") var pauseMediaOnLock: Bool = false // New property
     @AppStorage("wakeOnAutoLockOnly") var wakeOnAutoLockOnly: Bool = false // New property
     @AppStorage("skippedVersion") var skippedVersion: String = "" // For update skipping
+    @Published var isPaused: Bool = UserDefaults.standard.bool(forKey: "isPaused") { // New property for pause state
+        didSet {
+            UserDefaults.standard.set(isPaused, forKey: "isPaused")
+        }
+    }
     
     @Published var launchAtLoginEnabled: Bool = false
 
     init() {
         // Initialize launchAtLoginEnabled based on current SMAppService status
         updateLaunchAtLoginStatus()
+        
+        // Apply selected language on app launch
+        if let languageCode = selectedLanguageCode {
+            UserDefaults.standard.set([languageCode], forKey: "AppleLanguages")
+            UserDefaults.standard.synchronize()
+        }
     }
 
     func updateLaunchAtLoginStatus() {
@@ -63,6 +75,40 @@ class AppSettings: ObservableObject {
             #endif
         }
     }
+    
+    func lockScreen() {
+        guard !isPaused else { return }
+
+        let command: String
+        switch lockMode {
+        case .lockScreen:
+            command = "pmset displaysleepnow"
+            #if DEBUG
+            print("LockScreen: Executing command: \(command)")
+            print("LockItApp: Screen locked.")
+            #endif
+        case .screenSaver:
+            command = "open -a ScreenSaverEngine"
+            #if DEBUG
+            print("LockScreen: Executing command: \(command)")
+            print("LockItApp: Screen saver activated.")
+            #endif
+        }
+
+        let task = Process()
+        task.launchPath = "/bin/bash"
+        task.arguments = ["-c", command]
+        task.launch()
+
+        // Pause media if setting is enabled
+        if pauseMediaOnLock {
+            let pauseMediaScript = "tell application \"System Events\" to key code 49"
+            let osascriptTask = Process()
+            osascriptTask.launchPath = "/usr/bin/osascript"
+            osascriptTask.arguments = ["-e", pauseMediaScript]
+            osascriptTask.launch()
+        }
+    }
 }
 
 enum LockMode: String, CaseIterable {
@@ -87,16 +133,23 @@ struct LockNowButton: View {
     }
 }
 
-struct ConnectedDeviceStatusView: View {
-    @ObservedObject var bluetoothManager: BluetoothManager
-    var body: some View {
-        if bluetoothManager.selectedPeripheral == nil {
-            Text(NSLocalizedString("NO_DEVICE_CONNECTED", comment: "Text displayed when no device is connected")).disabled(true)
-        } else {
-            Text(String(format: NSLocalizedString("CONNECTED_DEVICE_STATUS", comment: "Text showing connected device status"), bluetoothManager.selectedPeripheral?.name ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name"), bluetoothManager.rssi.intValue))
-        }
-    }
-}
+//struct ConnectedDeviceStatusView: View {
+//    @ObservedObject var settings: AppSettings
+//    @ObservedObject var bluetoothManager: BluetoothManager
+//
+//    var body: some View {
+//        let _ = print("✅ The ConnectedDeviceStatusView containing this print statement is re-rendering.")
+//        if bluetoothManager.selectedPeripheral == nil {
+//            Text(NSLocalizedString("NO_DEVICE_CONNECTED", comment: "Text displayed when no device is connected")).disabled(true)
+//        } else {
+//            //Text(String(format: NSLocalizedString("CONNECTED_DEVICE_STATUS", comment: "Text showing connected device status"), bluetoothManager.selectedPeripheral?.name ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name"), bluetoothManager.rssi.intValue))
+////                .onChange(of: bluetoothManager.rssi) {
+////                self.handleRssiChange(bluetoothManager.rssi)
+////            }
+//            Text(String(format: NSLocalizedString("CONNECTED_DEVICE_STATUS", comment: "Text showing connected device status"), settings.selectedPeripheralName ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name"), 0))
+//        }
+//    }
+//}
 
 struct DiscoveredDeviceRow: View {
     let discoveredDevice: DiscoveredDevice
@@ -113,20 +166,95 @@ struct DiscoveredDeviceRow: View {
 }
 
 struct SelectBluetoothDeviceMenu: View {
-    @ObservedObject var bluetoothManager: BluetoothManager
-    let connectAction: (CBPeripheral) -> Void
+    @ObservedObject var settings: AppSettings
+    @StateObject private var bluetoothManager = BluetoothManager.shared
 
+    @State private var weakSignalTimer: Timer?
+    @State private var disconnectTimer: Timer?
+    @State private var isLockedByApp = false
     var body: some View {
-        return Menu(String(format:NSLocalizedString("SELECT_BLUETOOTH_DEVICE_MENU_TITLE", comment: "Menu title for selecting Bluetooth device"), bluetoothManager.selectedPeripheral?.name ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name"))) {
-            if bluetoothManager.discoveredPeripherals.isEmpty {
-                Text(NSLocalizedString("SCANNING_STATUS", comment: "Text indicating scanning in progress")).disabled(true)
-            }
-            // Use the struct's 'id' property, which conforms to Identifiable.
-            ForEach(bluetoothManager.discoveredPeripherals) { discoveredDevice in
-                DiscoveredDeviceRow(discoveredDevice: discoveredDevice, connectAction: connectAction)
+        let _ = print("✅ The SelectBluetoothDeviceMenu containing this print statement is re-rendering.")
+
+        if bluetoothManager.discoveredPeripherals.isEmpty {
+            Text(NSLocalizedString("SCANNING_STATUS", comment: "Text indicating scanning in progress")).disabled(true)
+        }
+        ForEach(bluetoothManager.discoveredPeripherals) { discoveredDevice in
+            DiscoveredDeviceRow(discoveredDevice: discoveredDevice, connectAction: { peripheral in
+                bluetoothManager.connect(to: peripheral)
+                settings.selectedPeripheralName = peripheral.name
+            }).onChange(of: bluetoothManager.rssi) {
+                self.handleRssiChange(bluetoothManager.rssi)
             }
         }
+
     }
+
+    private func handleRssiChange(_ newRssi: NSNumber) {
+        guard !settings.isPaused else { return }
+
+        // If screen on is disabled, don't check for strong signals
+        if settings.screenOnSignalThreshold == 0 {
+            if newRssi.intValue < settings.weakSignalThreshold {
+                if weakSignalTimer == nil {
+                    weakSignalTimer = Timer.scheduledTimer(withTimeInterval: settings.weakSignalTimeout, repeats: false) { _ in
+                        settings.lockScreen()
+                    }
+                }
+            } else {
+                weakSignalTimer?.invalidate()
+                weakSignalTimer = nil
+            }
+            return
+        }
+
+        if newRssi.intValue < settings.weakSignalThreshold {
+            if weakSignalTimer == nil {
+                weakSignalTimer = Timer.scheduledTimer(withTimeInterval: settings.weakSignalTimeout, repeats: false) { _ in
+                    settings.lockScreen()
+                }
+            }
+        } else if newRssi.intValue > settings.screenOnSignalThreshold { // New condition
+            // If signal is strong enough, invalidate weak signal timer and turn on screen
+            weakSignalTimer?.invalidate()
+            weakSignalTimer = nil
+
+            // Turn on screen only if the screen is currently locked
+            if isScreenLocked() {
+                if settings.wakeOnAutoLockOnly && !isLockedByApp {
+                    #if DEBUG
+                    print("LockItApp: Screen not woken because wakeOnAutoLockOnly is enabled and screen was not locked by app.")
+                    #endif
+                    return
+                }
+                #if DEBUG
+                print("LockItApp: Screen turned on.")
+                #endif
+                let task = Process()
+                task.launchPath = "/usr/bin/caffeinate"
+                task.arguments = ["-u", "-t", "1"]
+                task.launch()
+                isLockedByApp = false // Reset after waking
+            } else {
+                #if DEBUG
+                print("LockItApp: Screen is already unlocked, not turning on.")
+                #endif
+            }
+        }
+        else {
+            weakSignalTimer?.invalidate()
+            weakSignalTimer = nil
+        }
+    }
+    
+    // MARK: - Core Logic
+    private func isScreenLocked() -> Bool {
+        if let sessionDict = CGSessionCopyCurrentDictionary() as? [String: Any],
+           let isLocked = sessionDict["CGSSessionScreenIsLocked"] as? Bool {
+            return isLocked
+        }
+        return false
+    }
+
 }
 
 struct SignalThresholdMenu: View {
@@ -210,15 +338,15 @@ struct LaunchAtLoginToggle: View {
 
 // ADDED: A new dedicated view for the Pause/Resume button
 struct PauseButton: View {
-    @ObservedObject var bluetoothManager: BluetoothManager
+    @ObservedObject var settings: AppSettings
 
     var body: some View {
         Button(action: {
-            bluetoothManager.togglePause()
+            settings.isPaused.toggle()
         }) {
-            Text(bluetoothManager.isPaused ? NSLocalizedString("PAUSE_BUTTON_CONTINUE", comment: "Text for continue button when paused") : NSLocalizedString("PAUSE_BUTTON_PAUSE", comment: "Text for pause button"))
+            Text(settings.isPaused ? NSLocalizedString("PAUSE_BUTTON_CONTINUE", comment: "Text for continue button when paused") : NSLocalizedString("PAUSE_BUTTON_PAUSE", comment: "Text for pause button"))
         }
-        .help(bluetoothManager.isPaused ? NSLocalizedString("TOOLTIP_RESUME_ACTIVITY", comment: "Tooltip for resuming activity") : NSLocalizedString("TOOLTIP_PAUSE_ACTIVITY", comment: "Tooltip for pausing activity"))
+                .help(settings.isPaused ? NSLocalizedString("TOOLTIP_RESUME_ACTIVITY", comment: "Tooltip for resuming activity") : NSLocalizedString("TOOLTIP_PAUSE_ACTIVITY", comment: "Tooltip for pausing activity"))
     }
 }
 
@@ -328,23 +456,25 @@ struct AboutView: View {
 
 // MARK: - MenuBarContentView
 struct MenuBarContentView: View {
-    @ObservedObject var bluetoothManager: BluetoothManager
     @ObservedObject var settings: AppSettings
-    let lockScreenAction: () -> Void
+    
     let quitAction: () -> Void
     let checkForUpdatesAction: () -> Void
     
     @Environment(\.openWindow) private var openWindow
-
+    
     var body: some View {
+        let _ = print("✅ The MenuBarContentView containing this print statement is re-rendering.")
+        let _ = Self._printChanges()
         Group {
-            LockNowButton(action: lockScreenAction)
+            LockNowButton(action: { settings.lockScreen() })
             Divider()
-            ConnectedDeviceStatusView(bluetoothManager: bluetoothManager)
-            Divider()
-            SelectBluetoothDeviceMenu(bluetoothManager: bluetoothManager) { peripheral in
-                bluetoothManager.connect(to: peripheral)
+            Menu {
+                SelectBluetoothDeviceMenu(settings: settings)
+            } label: {
+                Text(String(format:NSLocalizedString("SELECT_BLUETOOTH_DEVICE_MENU_TITLE", comment: "Menu title for selecting Bluetooth device"), settings.selectedPeripheralName ?? NSLocalizedString("UNKNOWN_DEVICE", comment: "Unknown device name")))
             }
+            Divider()
             SignalThresholdMenu(settings: settings)
             ScreenOnSignalThresholdMenu(settings: settings)
             WeakSignalTimeoutMenu(settings: settings)
@@ -362,7 +492,7 @@ struct MenuBarContentView: View {
             Button(NSLocalizedString("ABOUT_BUTTON_TITLE", comment: "Title for the About button")) {
                 openWindow(id: "about")
             }
-            PauseButton(bluetoothManager: bluetoothManager)
+            PauseButton(settings: settings)
             QuitButton(action: quitAction)
         }
     }
@@ -371,42 +501,24 @@ struct MenuBarContentView: View {
 // MARK: - Main Application
 @main
 struct LockItApp: App {
-    @StateObject private var bluetoothManager = BluetoothManager()
     @StateObject private var settings = AppSettings()
-
     init() {
-        _bluetoothManager = StateObject(wrappedValue: BluetoothManager())
+        let initialSettings = AppSettings()
         _settings = StateObject(wrappedValue: AppSettings())
-
-        // Apply selected language on app launch
-        if let languageCode = settings.selectedLanguageCode {
-            UserDefaults.standard.set([languageCode], forKey: "AppleLanguages")
-            UserDefaults.standard.synchronize()
-        }
+        BluetoothManager.shared.setup(settings: settings)
+        BluetoothManager.shared.lockScreenAction = {  initialSettings.lockScreen() }
     }
-    @State private var weakSignalTimer: Timer?
-    @State private var disconnectTimer: Timer?
-    @State private var isLockedByApp = false
     var body: some Scene {
         MenuBarExtra(content: {
             MenuBarContentView(
-                bluetoothManager: bluetoothManager,
                 settings: settings,
-                lockScreenAction: { self.lockScreen() },
                 quitAction: { NSApplication.shared.terminate(nil) },
                 checkForUpdatesAction: { self.checkForUpdates() }
             )
-            .onAppear {
-                _bluetoothManager.wrappedValue.setup(settings: _settings.wrappedValue)
-                _bluetoothManager.wrappedValue.lockScreenAction = { self.lockScreen() }
-            }
         }, label: {
             Image(systemName: imageName)
         })
-        .onChange(of: bluetoothManager.rssi) {
-            self.handleRssiChange(bluetoothManager.rssi)
-        }
-        
+    
         Window(NSLocalizedString("ABOUT_WINDOW_TITLE", comment: "Title for the About window"), id: "about") {
             AboutView()
         }
@@ -415,112 +527,10 @@ struct LockItApp: App {
 
     // MARK: - Computed Properties
     private var imageName: String {
-        if bluetoothManager.isPaused {
+        if settings.isPaused {
             return "lock.slash.fill"
         }
         return settings.selectedPeripheralUUID != nil ? "lock.fill" : "lock.open.fill"
-    }
-
-    // MARK: - Core Logic
-    private func isScreenLocked() -> Bool {
-        if let sessionDict = CGSessionCopyCurrentDictionary() as? [String: Any],
-           let isLocked = sessionDict["CGSSessionScreenIsLocked"] as? Bool {
-            return isLocked
-        }
-        return false
-    }
-
-    private func handleRssiChange(_ newRssi: NSNumber) {
-        guard !bluetoothManager.isPaused else { return }
-
-        // If screen on is disabled, don't check for strong signals
-        if settings.screenOnSignalThreshold == 0 {
-            if newRssi.intValue < settings.weakSignalThreshold {
-                if weakSignalTimer == nil {
-                    weakSignalTimer = Timer.scheduledTimer(withTimeInterval: settings.weakSignalTimeout, repeats: false) { _ in
-                        lockScreen()
-                    }
-                }
-            } else {
-                weakSignalTimer?.invalidate()
-                weakSignalTimer = nil
-            }
-            return
-        }
-
-        if newRssi.intValue < settings.weakSignalThreshold {
-            if weakSignalTimer == nil {
-                weakSignalTimer = Timer.scheduledTimer(withTimeInterval: settings.weakSignalTimeout, repeats: false) { _ in
-                    lockScreen()
-                }
-            }
-        } else if newRssi.intValue > settings.screenOnSignalThreshold { // New condition
-            // If signal is strong enough, invalidate weak signal timer and turn on screen
-            weakSignalTimer?.invalidate()
-            weakSignalTimer = nil
-
-            // Turn on screen only if the screen is currently locked
-            if isScreenLocked() {
-                if settings.wakeOnAutoLockOnly && !isLockedByApp {
-                    #if DEBUG
-                    print("LockItApp: Screen not woken because wakeOnAutoLockOnly is enabled and screen was not locked by app.")
-                    #endif
-                    return
-                }
-                #if DEBUG
-                print("LockItApp: Screen turned on.")
-                #endif
-                let task = Process()
-                task.launchPath = "/usr/bin/caffeinate"
-                task.arguments = ["-u", "-t", "1"]
-                task.launch()
-                isLockedByApp = false // Reset after waking
-            } else {
-                #if DEBUG
-                print("LockItApp: Screen is already unlocked, not turning on.")
-                #endif
-            }
-        }
-        else {
-            weakSignalTimer?.invalidate()
-            weakSignalTimer = nil
-        }
-    }
-
-    private func lockScreen() {
-        guard !bluetoothManager.isPaused else { return }
-
-        let command: String
-        switch settings.lockMode {
-        case .lockScreen:
-            command = "pmset displaysleepnow"
-            #if DEBUG
-            print("LockScreen: Executing command: \(command)")
-            print("LockItApp: Screen locked.")
-            #endif
-        case .screenSaver:
-            command = "open -a ScreenSaverEngine"
-            #if DEBUG
-            print("LockScreen: Executing command: \(command)")
-            print("LockItApp: Screen saver activated.")
-            #endif
-        }
-
-        let task = Process()
-        task.launchPath = "/bin/bash"
-        task.arguments = ["-c", command]
-        task.launch()
-
-        isLockedByApp = true // Set the flag
-
-        // Pause media if setting is enabled
-        if settings.pauseMediaOnLock {
-            let pauseMediaScript = "tell application \"System Events\" to key code 49"
-            let osascriptTask = Process()
-            osascriptTask.launchPath = "/usr/bin/osascript"
-            osascriptTask.arguments = ["-e", pauseMediaScript]
-            osascriptTask.launch()
-        }
     }
     
     // MARK: - Update Checking

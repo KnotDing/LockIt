@@ -40,8 +40,3 @@ struct DiscoveredDevice: Equatable, Identifiable {
         return lhs.id == rhs.id && lhs.rssi == rhs.rssi
     }
 }
-
-enum ScanReason {
-    case listPopulation
-    case appLaunch
-}
