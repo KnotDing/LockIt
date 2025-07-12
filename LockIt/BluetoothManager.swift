@@ -8,15 +8,7 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     static let shared = BluetoothManager()
     // MARK: - Published Properties
     @Published var discoveredPeripherals = [DiscoveredDevice]()
-    @Published var selectedPeripheral: CBPeripheral? {
-        didSet {
-            settings?.selectedPeripheralUUID = selectedPeripheral?.identifier.uuidString
-        }
-    }
-    @Published var rssi: NSNumber = 0
-    @Published var isScanning = false
-    
-
+    var selectedPeripheralUUID: String?
     // MARK: - Private Properties
     private var centralManager: CBCentralManager!
     private var scanBuffer = [UUID: DiscoveredDevice]()
@@ -25,12 +17,16 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private var cleanupTimer: Timer?
     private let deviceTimeoutInterval: TimeInterval = 5.0
     private var lockScreenTimer: Timer?
-    private var _isPaused: Bool = false // Internal pause state
+    var isPaused: Bool = false // Internal pause state
     // Dependencies
     var settings: AppSettings?
     var lockScreenAction: (() -> Void)?
     private var cancellables = Set<AnyCancellable>()
 
+    private var weakSignalTimer: Timer?
+    private var disconnectTimer: Timer?
+    private var isLockedByApp = false
+    
     // MARK: - Initialization
     override init() {
         super.init()
@@ -39,28 +35,15 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
 
     func setup(settings: AppSettings) {
         self.settings = settings
-        if let uuidString = settings.selectedPeripheralUUID, let uuid = UUID(uuidString: uuidString) {
-            let peripherals = centralManager.retrievePeripherals(withIdentifiers: [uuid])
-            if let peripheral = peripherals.first {
-                self.selectedPeripheral = peripheral
-                self.selectedPeripheral?.delegate = self
-                #if DEBUG
-                print("BluetoothManager: Restored selected peripheral: \(peripheral.name ?? "Unknown")")
-                #endif
-            }
+        if let uuidString = settings.selectedPeripheralUUID {
+            self.selectedPeripheralUUID = uuidString
+            #if DEBUG
+            print("BluetoothManager: Restored selected peripheral: \(settings.selectedPeripheralUUID ?? "Unknown")")
+            #endif
         }
-        
-        // Subscribe to changes in settings.isPaused
-        settings.$isPaused
-            .sink { [weak self] newIsPaused in
-                guard let self = self else { return }
-                self._isPaused = newIsPaused
-                self.applyPauseState(newIsPaused)
-            }
-            .store(in: &cancellables)
-        
         // Apply initial pause state
-        self._isPaused = settings.isPaused
+        self.isPaused = settings.isPaused
+        self.lockScreenAction = settings.lockScreen
         applyPauseState(settings.isPaused)
     }
 
@@ -71,7 +54,6 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         if isPaused {
             // --- PAUSING ---
             centralManager.stopScan()
-            self.isScanning = false
             updateTimer?.invalidate()
             updateTimer = nil
             cleanupTimer?.invalidate()
@@ -107,11 +89,11 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
         // MODIFIED: We still discover devices in the background, but timers won't process them if paused.
-        guard !self._isPaused, let name = peripheral.name, !name.isEmpty else { return }
+        guard !self.isPaused, let name = peripheral.name, !name.isEmpty else { return }
 
-        if peripheral.identifier == selectedPeripheral?.identifier {
+        if peripheral.identifier.uuidString == selectedPeripheralUUID {
             DispatchQueue.main.async {
-                self.rssi = RSSI
+                self.handleRssiChange(newRssi: RSSI)
             }
             if self.lockScreenTimer != nil {
                 self.lockScreenTimer?.invalidate()
@@ -148,7 +130,7 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     // MARK: - Scanning Logic
     func startScan() {
         // MODIFIED: Added guard to prevent scanning if paused
-        guard !self._isPaused else {
+        guard !self.isPaused else {
             #if DEBUG
             print("BluetoothManager: startScan ignored because manager is paused.")
             #endif
@@ -156,28 +138,22 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         }
         
         if centralManager.state == .poweredOn {
-            isScanning = true
             let scanOptions: [String: Any] = [CBCentralManagerScanOptionAllowDuplicatesKey: NSNumber(value: true)]
             centralManager.scanForPeripherals(withServices: nil, options: scanOptions)
             #if DEBUG
             print("BluetoothManager: Started central scan with duplicates allowed.")
             #endif
 
-            // --- 添加这个健壮性检查 ---
-            // 在创建新定时器之前，先销毁任何已存在的定时器。
             updateTimer?.invalidate()
             cleanupTimer?.invalidate()
-            //
-            
-            // 1. 创建 Timer 实例
+
             let newUpdateTimer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
                 self?.processBufferedUpdates()
             }
-            // 2. 手动将其添加到 common 模式的 RunLoop 中
+
             RunLoop.current.add(newUpdateTimer, forMode: .common)
             self.updateTimer = newUpdateTimer
 
-            // 对 cleanupTimer 做同样的操作
             let newCleanupTimer = Timer(timeInterval: 5.0, repeats: true) { [weak self] _ in
                 self?.removeStalePeripherals()
             }
@@ -189,16 +165,14 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
 
     // MARK: - Device and Lock Management
     func connect(to peripheral: CBPeripheral) {
-        selectedPeripheral = peripheral
-        selectedPeripheral?.delegate = self
+        #if DEBUG
+        print("BluetoothManager: Connect \(peripheral.name ?? "Unknown").")
+        #endif
+        selectedPeripheralUUID = peripheral.identifier.uuidString
     }
 
     func disconnect() {
-        if let peripheral = selectedPeripheral {
-            centralManager.cancelPeripheralConnection(peripheral)
-        }
-        selectedPeripheral = nil
-        rssi = 0
+        selectedPeripheralUUID = ""
     }
     
     private func triggerLockScreen() {
@@ -210,7 +184,7 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
 
     private func handleLockScreenLogic(for peripheral: CBPeripheral, reason: String) {
         // MODIFIED: Added guard to prevent lock logic if paused
-        guard !self._isPaused else {
+        guard !self.isPaused else {
             #if DEBUG
             print("BluetoothManager: handleLockScreenLogic ignored because manager is paused.")
             #endif
@@ -233,6 +207,12 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     
     // MARK: - Timed Helper Functions
     private func processBufferedUpdates() {
+        guard !self.isPaused else {
+            #if DEBUG
+            print("BluetoothManager: processBufferedUpdates ignored because manager is paused.")
+            #endif
+            return
+        }
         #if DEBUG
         print("BluetoothManager: Update devices from UI list")
         #endif
@@ -251,11 +231,18 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     }
 
     private func removeStalePeripherals() {
+        guard !self.isPaused else {
+            #if DEBUG
+            print("BluetoothManager: removeStalePeripherals ignored because manager is paused.")
+            #endif
+            return
+        }
+        
         let now = Date()
         var hasChangesForUI = false
         for (identifier, device) in masterDeviceList {
             if now.timeIntervalSince(device.lastSeen) > deviceTimeoutInterval {
-                if identifier == selectedPeripheral?.identifier {
+                if identifier.uuidString == selectedPeripheralUUID {
                     handleLockScreenLogic(for: device.peripheral, reason: "device disappeared (timeout)")
                     continue
                 }
@@ -270,4 +257,74 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             processBufferedUpdates()
         }
     }
+    
+    private func handleRssiChange(newRssi: NSNumber) {
+        #if DEBUG
+        print("BluetoothManager: Handling Rssi Change.")
+        #endif
+        guard !self.isPaused else { return }
+        guard let settings = self.settings else { return }
+        // If screen on is disabled, don't check for strong signals
+        if settings.screenOnSignalThreshold == 0 {
+            if newRssi.intValue < settings.weakSignalThreshold {
+                if weakSignalTimer == nil {
+                    weakSignalTimer = Timer.scheduledTimer(withTimeInterval: settings.weakSignalTimeout, repeats: false) { _ in
+                        settings.lockScreen()
+                    }
+                }
+            } else {
+                weakSignalTimer?.invalidate()
+                weakSignalTimer = nil
+            }
+            return
+        }
+
+        if newRssi.intValue < settings.weakSignalThreshold {
+            if weakSignalTimer == nil {
+                weakSignalTimer = Timer.scheduledTimer(withTimeInterval: settings.weakSignalTimeout, repeats: false) { _ in
+                    settings.lockScreen()
+                }
+            }
+        } else if newRssi.intValue > settings.screenOnSignalThreshold { // New condition
+            // If signal is strong enough, invalidate weak signal timer and turn on screen
+            weakSignalTimer?.invalidate()
+            weakSignalTimer = nil
+
+            // Turn on screen only if the screen is currently locked
+            if isScreenLocked() {
+                if settings.wakeOnAutoLockOnly && !isLockedByApp {
+                    #if DEBUG
+                    print("BluetoothManager: Screen not woken because wakeOnAutoLockOnly is enabled and screen was not locked by app.")
+                    #endif
+                    return
+                }
+                #if DEBUG
+                print("BluetoothManager: Screen turned on.")
+                #endif
+                let task = Process()
+                task.launchPath = "/usr/bin/caffeinate"
+                task.arguments = ["-u", "-t", "1"]
+                task.launch()
+                isLockedByApp = false // Reset after waking
+            } else {
+                #if DEBUG
+                print("LockItApp: Screen is already unlocked, not turning on.")
+                #endif
+            }
+        }
+        else {
+            weakSignalTimer?.invalidate()
+            weakSignalTimer = nil
+        }
+    }
+    
+    // MARK: - Core Logic
+    private func isScreenLocked() -> Bool {
+        if let sessionDict = CGSessionCopyCurrentDictionary() as? [String: Any],
+           let isLocked = sessionDict["CGSSessionScreenIsLocked"] as? Bool {
+            return isLocked
+        }
+        return false
+    }
+
 }
